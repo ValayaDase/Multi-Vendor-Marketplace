@@ -1,12 +1,10 @@
 import User from "../models/User.js";
 import Order from "../models/Order.js";
-// import CustomOrder from "../models/CustomOrder.js";
 import Payment from "../models/Payment.js";
 import Product from "../models/Product.js";
-// import Studio from "../models/Studio.js";
 import fs from "fs";
 import path from "path";
-
+import { sendEmail } from "../utils/sendEmail.js";
 
 // get request from users to become sellers
 export const getSellerRequests = async (req, res) => {
@@ -17,7 +15,6 @@ export const getSellerRequests = async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 };
-
 
 // APPROVE SELLER
 export const approveSeller = async (req, res) => {
@@ -32,167 +29,50 @@ export const approveSeller = async (req, res) => {
 
     await user.save();
 
+    await sendEmail(
+      user.email,
+      "Seller Request Approved",
+      "Your seller request for VendorHub has been approved.",
+    );
+
     res.json({ msg: "Seller Approved!" });
   } catch (error) {
     res.status(500).json({ msg: "Server error" });
   }
 };
 
-
 // REJECT SELLER
-
 
 export const rejectSeller = async (req, res) => {
   try {
     const user = await User.findById(req.body.userId);
-    
+
     // 1. Image delete (Wahi ek line wala logic)
     const imgPath = user.businessDetails?.studioImage;
     if (imgPath) {
-      fs.unlinkSync(path.join(process.cwd(), imgPath)); 
+      fs.unlinkSync(path.join(process.cwd(), imgPath));
     }
 
     // 2. Data Clean (Sirf 3 lines)
     user.businessDetails = {}; // Sab saaf
-    user.bankDetails = {};     // Sab saaf
+    user.bankDetails = {}; // Sab saaf
     user.sellerRequest = "rejected";
 
     await user.save();
+    await sendEmail(
+      user.email,
+      "Seller Request Rejected",
+      "Your seller request for VendorHub has been rejected.",
+    );
     res.json({ msg: "User seller request rejected and cleaned!" });
   } catch (err) {
-    res.status(500).json({ msg: "Error rejecting seller request: " + err.message });
+    res
+      .status(500)
+      .json({ msg: "Error rejecting seller request: " + err.message });
   }
 };
 
-// export const rejectSeller = async (req, res) => {
-//   try {
-//     const { userId } = req.body;
-
-//     const user = await User.findById(userId);
-//     if (!user) return res.status(404).json({ msg: "User not found" });
-
-//     //  Delete sample image if exists
-//     if (user.sellerSampleImage) {
-//       const imgPath = user.sellerSampleImage.startsWith("/")
-//         ? user.sellerSampleImage. slice(1)
-//         : user.sellerSampleImage;
-//       const filePath = path.join(process.cwd(), imgPath);
-
-//       try {
-//         await fs.promises.unlink(filePath);
-//         console.log(" Sample image deleted:", filePath);
-//       } catch (err) {
-//         console.log(" Failed to delete sample image(server side):", err.message);
-//       }
-//     }
-
-//     //  Update user status
-//     user.sellerRequest = "rejected";
-//     user.sellerSampleImage = null;  // Clear the image path
-
-//     await user.save();
-
-//     res.json({ msg: "Seller Request Rejected" });
-//   } catch (error) {
-//     console.error("Reject Seller Error:", error);
-//     res.status(500).json({ msg: "Server error", error: error.message });
-//   }
-// };
-
-
-// REMOVE SELLER
-// export const removeSeller = async (req, res) => {
-//   try {
-//     const sellerId = req.params.id;
-    
-//     const user = await User.findById(sellerId);
-//     if (!user) return res.status(404).json({ msg: "User not found" });
-
-//     const products = await Product.find({ seller: sellerId });
-//     const normalOrders = await Order.find({ seller: sellerId });
-
-//     console.log(`Removing seller: ${sellerId}`);
-
-//     //  Delete ONLY sample image (not needed anymore)
-//     if (user.sellerSampleImage) {
-//       const imgPath = user.sellerSampleImage.startsWith("/")
-//         ? user.sellerSampleImage. slice(1)
-//         : user.sellerSampleImage;
-//       const filePath = path.join(process.cwd(), imgPath);
-
-//       try {
-//         await fs.promises.unlink(filePath);
-//         console.log(" Sample image deleted:", filePath);
-//       } catch (err) {
-//         console.log(" Failed to delete sample image:", err.message);
-//       }
-//     }
-//     //KEEP product images but mark products as unavailable
-//     await Product.updateMany(
-//       { seller: sellerId },
-//       { 
-//         $set: { 
-//           stock: 0,
-//           available: false  // Add this field to your Product model if needed
-//         } 
-//       }
-//     );
-//     console.log(" Products marked as unavailable (images preserved for order history)");
-
-//     //  Update normal orders status (KEEP orders and images for buyer history)
-//     await Order.updateMany(
-//       { seller: sellerId },
-//       { 
-//         $set: { 
-//           orderStatus: "seller_removed"
-//         } 
-//       }
-//     );
-//     console.log(` ${normalOrders.length} normal orders marked as 'seller_removed' (preserved for buyers)`);
-
-//     // Update custom orders status (KEEP orders and images)
-//     await CustomOrder.updateMany(
-//       { seller: sellerId },
-//       { 
-//         $set: { 
-//           status: "seller_removed"
-//         } 
-//       }
-//     );
-//     console.log(` ${customOrders.length} custom orders marked as 'seller_removed' (preserved for buyers)`);
-
-//     //  KEEP payments (needed for transaction history and refunds)
-//     console.log(" Payments preserved for transaction history");
-
-//     //  Downgrade user to buyer
-//     await User.findByIdAndUpdate(sellerId, { 
-//       role: "buyer",
-//       sellerRequest: "none",
-//       sellerSampleImage:  null
-//     });
-//     console.log(" User downgraded to buyer");
-
-//     res.json({ 
-//       msg: "Seller removed successfully. User downgraded to buyer.  All orders and product images preserved for buyer history.  Studio and promotional content deleted.",
-//       stats: {
-//         ordersPreserved: normalOrders.length,
-//         customOrdersPreserved: customOrders.length,
-//         productsDisabled: products.length
-//       }
-//     });
-
-//   } catch (err) {
-//     console.error("=== REMOVE SELLER ERROR ===");
-//     console.error("Error:", err);
-//     console.error("Stack:", err.stack);
-//     res.status(500).json({ 
-//       msg: "Failed to remove seller", 
-//       error: err.message 
-//     });
-//   }
-// };
-
-
+// remove seller
 export const removeSeller = async (req, res) => {
   try {
     const sellerId = req.params.id;
@@ -224,17 +104,14 @@ export const removeSeller = async (req, res) => {
     // 3. Products ko "Out of Stock" mark karna
     // Taaki buyer purane orders mein product dekh sake par naya kharid na sake
     const products = await Product.find({ seller: sellerId });
-    await Product.updateMany(
-      { seller: sellerId },
-      { $set: { stock: 0 } } 
-    );
+    await Product.updateMany({ seller: sellerId }, { $set: { stock: 0 } });
     console.log(`${products.length} products marked out of stock`);
 
     // 4. Orders ka status update karna
     const orders = await Order.find({ seller: sellerId });
     await Order.updateMany(
       { seller: sellerId },
-      { $set: { orderStatus: "seller_deleted" } }
+      { $set: { orderStatus: "seller_deleted" } },
     );
     console.log(`${orders.length} orders updated to 'seller_deleted'`);
 
@@ -244,24 +121,27 @@ export const removeSeller = async (req, res) => {
       role: "buyer",
       sellerRequest: "none",
       businessDetails: {}, // Ek line mein saara business data saaf
-      bankDetails: {}      // Ek line mein saara bank data saaf
+      bankDetails: {}, // Ek line mein saara bank data saaf
     });
+
+    await sendEmail(
+      user.email,
+      "Seller Account Removed",
+      "Your seller account on VendorHub has been removed. Your products are now out of stock and orders are preserved for buyer history. You can continue to use your account as a buyer.",
+    );
 
     res.json({
       msg: "Seller removed successfully. Role changed to buyer.",
       stats: {
         productsAffected: products.length,
-        ordersAffected: orders.length
-      }
+        ordersAffected: orders.length,
+      },
     });
-
   } catch (err) {
     console.error("REMOVE SELLER ERROR:", err.message);
     res.status(500).json({ msg: "Failed to remove seller" });
   }
 };
-
-
 
 // GET ALL APPROVED SELLERS
 
@@ -271,15 +151,17 @@ export const getAllSellers = async (req, res) => {
 
     const sellersWithStats = await Promise.all(
       sellers.map(async (seller) => {
-        const productCount = await Product.countDocuments({ seller: seller._id });
+        const productCount = await Product.countDocuments({
+          seller: seller._id,
+        });
         const orderCount = await Order.countDocuments({ seller: seller._id });
 
         return {
           ...seller.toObject(),
           productCount,
-          orderCount
+          orderCount,
         };
-      })
+      }),
     );
 
     res.json(sellersWithStats);
@@ -295,23 +177,22 @@ export const getStatCounts = async (req, res) => {
   try {
     // 1. Role 'buyer' wale users count karo
     const totalBuyer = await User.countDocuments({ role: "buyer" });
-    
+
     // 2. Role 'seller' wale users count karo
     const totalSellers = await User.countDocuments({ role: "seller" });
-    
+
     // 3. Saare orders count karo (Ab customOrder nikal diya hai toh seedha count karo)
     const totalOrders = await Order.countDocuments();
-    
+
     // Frontend ko data bhej do
     res.json({ totalBuyer, totalSellers, totalOrders });
-  }
-  catch (error) {
+  } catch (error) {
     console.error("Stat Count Error:", error.message);
     res.status(500).json({ msg: "Server error" });
   }
-}
+};
 
-//get all orders 
+//get all orders
 export const getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find()
@@ -328,53 +209,20 @@ export const getAllOrders = async (req, res) => {
   }
 };
 
-// get all custom orders
-// export const getAllCustomOrders = async (req, res) => {
-//   try {
-//     const orders = await CustomOrder.find()
-//       .populate("buyer")
-//       .populate("seller")
-//       .sort({ createdAt: -1 });
-
-//     res.json(orders);
-//   } catch (err) {
-//     console.error("Get Admin Custom Orders Error:", err);
-//     res.status(500).json({ msg: "Server error" });
-//   }
-// };
-
-// get payments for custom order only 
-// export const getCustomPayments = async (req, res) => {
-//   try {
-//     const payments = await Payment.find({ customOrder: { $ne: null } })
-//       .populate("buyer")
-//       .populate("seller")
-//       .populate("customOrder")
-//       .sort({ createdAt: -1 });
-
-//     res.json(payments);
-//   } catch (err) {
-//     console.error("Payment Fetch Err:", err);
-//     res.status(500).json({ msg: "Server error" });
-//   }
-// };
-
-// approve products added by seller
-
 // Admin route to approve a product
 export const approveProduct = async (req, res) => {
   try {
     // Route mein :id hai, isliye params.id use karein
-    const productId = req.params.id; 
-    
+    const productId = req.params.id;
+
     console.log("Approving product with ID:", productId);
-    
+
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       { status: "approved" },
-      { new: true }
+      { new: true },
     );
-    
+
     if (!updatedProduct) {
       return res.status(404).json({ msg: "Product not found" });
     }
@@ -394,11 +242,11 @@ export const rejectProduct = async (req, res) => {
 
     const product = await Product.findByIdAndUpdate(
       productId,
-      { 
+      {
         status: "rejected",
-        adminRemark: adminRemark || "Product does not meet our guidelines."
+        adminRemark: adminRemark || "Product does not meet our guidelines.",
       },
-      { new: true }
+      { new: true },
     );
 
     if (!product) return res.status(404).json({ msg: "Product not found" });
@@ -411,12 +259,13 @@ export const rejectProduct = async (req, res) => {
 
 // get pending products for admin approval queue
 export const getPendingProducts = async (req, res) => {
-  try{
-    const pendingProducts = await Product.find({status: "pending"})
-      .populate("seller")
+  try {
+    const pendingProducts = await Product.find({ status: "pending" }).populate(
+      "seller",
+    );
     // console.log(pendingProducts);
     res.json(pendingProducts);
   } catch (err) {
     res.status(500).json({ msg: "Failed to fetch pending products" });
   }
-}
+};

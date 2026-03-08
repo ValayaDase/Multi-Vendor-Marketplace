@@ -2,10 +2,10 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import ProductCard from "./ProductCard";
 import { useParams, useNavigate } from "react-router-dom";
-import api, {getImageUrl} from "../../config/api";
+import api, { getImageUrl } from "../../config/api";
 
 export default function ProductsPage() {
-  const { name } = useParams(); // category slug from URL (painting, pottery...)
+  const { name } = useParams(); // category slug from URL\
   const navigate = useNavigate();
 
   const [allProducts, setAllProducts] = useState([]); // full backend data
@@ -122,7 +122,7 @@ export default function ProductsPage() {
                     setFiltered(
                       name
                         ? allProducts.filter((p) => p.category === name)
-                        : allProducts
+                        : allProducts,
                     )
                   }
                   className="mt-8 inline-flex items-center gap-2 px-8 py-3 bg-rose-600 text-white rounded-full font-bold hover:bg-rose-700 transition-colors w-fit group shadow-lg shadow-rose-900/20"
@@ -142,7 +142,7 @@ export default function ProductsPage() {
                   </svg>
                   Clear Filters
                 </button>
-              </div>             
+              </div>
             </div>
           </aside>
 
@@ -223,7 +223,7 @@ export default function ProductsPage() {
                     setFiltered(
                       name
                         ? allProducts.filter((p) => p.category === name)
-                        : allProducts
+                        : allProducts,
                     )
                   }
                   className="group inline-flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 text-gray-900 rounded-full font-medium hover:border-rose-600 hover:text-rose-600 transition-all duration-300"

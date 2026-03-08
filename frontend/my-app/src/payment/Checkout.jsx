@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import api, {getImageUrl} from "../config/api";
+import api, { getImageUrl } from "../config/api";
+import {
+  MdOutlineLocalShipping,
+  MdOutlineSecurity,
+  MdChevronLeft,
+  MdVerifiedUser,
+  MdOutlineAccountBalanceWallet,
+} from "react-icons/md";
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
-
   const [checkoutData, setCheckoutData] = useState(null);
   const [loading, setLoading] = useState(false);
-  
   const [billing, setBilling] = useState({
     name: "",
     email: "",
@@ -19,7 +22,7 @@ export default function Checkout() {
 
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem("checkoutItem"));
-    if (! data) {
+    if (!data) {
       navigate("/buyer/cart");
       return;
     }
@@ -28,380 +31,276 @@ export default function Checkout() {
 
   if (!checkoutData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-slate-50 via-white to-slate-50">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-600 text-lg">Loading checkout... </p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  const isSingle = checkoutData.mode === "single";
-  const isCart = checkoutData.mode === "cart";
-
-  let itemsForCheckout = isSingle ?  [checkoutData] : checkoutData.items;
-
-  let subtotal = 0;
-  itemsForCheckout.forEach((i) => (subtotal += i.quantity * i.price));
+  // Common logic for both Single Buy and Cart
+  const itemsForCheckout =
+    checkoutData.mode === "single" ? [checkoutData] : checkoutData.items;
+  const subtotal = itemsForCheckout.reduce(
+    (acc, item) => acc + item.quantity * item.price,
+    0,
+  );
   const total = subtotal;
 
   const handleChange = (e) => {
-    setBilling({ ...billing, [e.target.name]:  e.target.value });
+    setBilling({ ...billing, [e.target.name]: e.target.value });
   };
 
   const payNow = async () => {
-    // Validation
-    if (!billing. name || ! billing.email || !billing.phone || !billing.address) {
-      alert("Please fill all billing fields!");
-      return;
-    }
-
-    console.log("=== PAYMENT STARTED ===");
-    console.log("Items for checkout:", itemsForCheckout);
-
-    // Validate items have productId
-    const invalidItems = itemsForCheckout. filter(item => !item.productId);
-    if (invalidItems.length > 0) {
-      console.error("Invalid items found:", invalidItems);
-      alert("Some items are missing product information. Please refresh and try again.");
+    if (!billing.name || !billing.email || !billing.phone || !billing.address) {
+      alert("Please fill all delivery details!");
       return;
     }
 
     setLoading(true);
-
     try {
       const orderIds = [];
-
-      console.log("Step 1: Creating orders...");
-
-      // ✅ Step 1: Create all orders
-      for (let i = 0; i < itemsForCheckout.length; i++) {
-        const item = itemsForCheckout[i];
-        
-        console.log(`Creating order ${i + 1}/${itemsForCheckout.length}:`, {
+      // Create orders for each item
+      for (const item of itemsForCheckout) {
+        const res = await api.post("/orders/create", {
           productId: item.productId,
           quantity: item.quantity,
-          price: item.price
+          billingName: billing.name,
+          billingEmail: billing.email,
+          billingPhone: billing.phone,
+          billingAddress: billing.address,
         });
-
-        try {
-          const orderRes = await api.post(
-            "/orders/create",
-            {
-              productId: item.productId,
-              quantity: item.quantity,
-              billingName: billing.name,
-              billingEmail: billing.email,
-              billingPhone: billing.phone,
-              billingAddress: billing.address,
-            }
-          );
-
-          console.log(`Order ${i + 1} created successfully: `, orderRes.data.order._id);
-          orderIds.push(orderRes.data.order._id);
-
-        } catch (orderError) {
-          console.error(`Failed to create order ${i + 1}:`, orderError.response?.data || orderError.message);
-          throw new Error(`Failed to create order for item ${i + 1}:  ${orderError.response?.data?. msg || orderError.message}`);
-        }
+        orderIds.push(res.data.order._id);
       }
 
-      console.log("All orders created.  Order IDs:", orderIds);
-      console.log("Step 2: Processing payments...");
+      // Process bulk payment
+      await api.post("/payments/bulk-cart", {
+        orderIds: orderIds,
+        billingInfo: billing,
+      });
 
-      // ✅ Step 2: Process bulk payment
-      const paymentRes = await api.post(
-        "/payments/bulk-cart",
-        {
-          orderIds: orderIds,
-          billingInfo:  billing,
-        }
-      );
-
-      console.log("Payment response:", paymentRes. data);
-
-      // ✅ Step 3: Clear checkout data
       localStorage.removeItem("checkoutItem");
       window.dispatchEvent(new Event("cartUpdated"));
-
-      console.log("=== PAYMENT COMPLETED ===");
-
-      // ✅ Show success
-      alert(`✔ Payment Successful!\n${paymentRes. data.totalSuccess} orders placed successfully. `);
-      
       navigate("/buyer/purchased");
-
     } catch (err) {
-      console.error("=== PAYMENT FAILED ===");
-      console.error("Error:", err);
-      console.error("Error response:", err. response?.data);
-      
-      const errorMsg = err.response?. data?.msg || err.message;
-      alert(` Payment failed: ${errorMsg}\n\nCheck console for details.`);
+      alert("Payment Failed: " + (err.response?.data?.msg || err.message));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-b from-slate-50 via-white to-slate-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-
-        {/* Header */}
-        <div className="mb-10">
+    <div className="min-h-screen bg-[#F8F9FA] pb-20 font-sans">
+      {/* --- MEESHO STYLE HEADER --- */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-4 transition-colors"
+            className="flex items-center gap-1 text-gray-800 font-bold text-xs hover:text-red-600 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back
+            <MdChevronLeft size={22} /> BACK
           </button>
-          <h1 className="text-4xl font-light text-slate-900 mb-2">Checkout</h1>
-          <p className="text-slate-500">Complete your purchase securely</p>
+          <div className="flex items-center gap-2">
+            <div className="flex flex-col items-center">
+              <div className="w-5 h-5 bg-gray-200 rounded-full text-[10px] flex items-center justify-center font-bold">
+                1
+              </div>
+              <span className="text-[10px] font-bold text-gray-400 mt-1">
+                CART
+              </span>
+            </div>
+            <div className="w-12 h-[2px] bg-gray-200 mb-4"></div>
+            <div className="flex flex-col items-center">
+              <div className="w-5 h-5 bg-red-600 rounded-full text-[10px] text-white flex items-center justify-center font-bold">
+                2
+              </div>
+              <span className="text-[10px] font-bold text-red-600 mt-1">
+                CHECKOUT
+              </span>
+            </div>
+          </div>
+          <div className="w-10"></div> {/* Spacer */}
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* --- LEFT SIDE: SHIPPING & PRODUCTS --- */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Shipping Form */}
+          <div className="bg-white rounded-sm shadow-sm border border-gray-100 p-6">
+            <div className="flex items-center gap-2 mb-6 border-b pb-4 border-gray-50">
+              <MdOutlineLocalShipping className="text-red-600" size={24} />
+              <h2 className="text-sm font-black uppercase tracking-tight text-gray-800">
+                Delivery Address
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1">
+                <p className="text-[11px] font-bold text-gray-500 uppercase">
+                  Full Name
+                </p>
+                <input
+                  name="name"
+                  type="text"
+                  onChange={handleChange}
+                  placeholder="e.g. Rahul Sharma"
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm text-sm focus:border-black outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[11px] font-bold text-gray-500 uppercase">
+                  Phone Number
+                </p>
+                <input
+                  name="phone"
+                  type="tel"
+                  onChange={handleChange}
+                  placeholder="10-digit mobile number"
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm text-sm focus:border-black outline-none transition-all"
+                />
+              </div>
+              <div className="md:col-span-2 space-y-1">
+                <p className="text-[11px] font-bold text-gray-500 uppercase">
+                  Email Address
+                </p>
+                <input
+                  name="email"
+                  type="email"
+                  onChange={handleChange}
+                  placeholder="yourname@gmail.com"
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm text-sm focus:border-black outline-none transition-all"
+                />
+              </div>
+              <div className="md:col-span-2 space-y-1">
+                <p className="text-[11px] font-bold text-gray-500 uppercase">
+                  Full Address
+                </p>
+                <textarea
+                  name="address"
+                  rows="3"
+                  onChange={handleChange}
+                  placeholder="House No, Building, Street, Landmark"
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm text-sm focus:border-black outline-none transition-all resize-none"
+                ></textarea>
+              </div>
+            </div>
+          </div>
+
+          {/* Product Preview */}
+          <div className="bg-white rounded-sm shadow-sm border border-gray-100 p-6">
+            <h2 className="text-sm font-black uppercase tracking-tight text-gray-800 mb-4">
+              Order Summary
+            </h2>
+            <div className="divide-y divide-gray-50">
+              {itemsForCheckout.map((item, idx) => (
+                <div key={idx} className="flex gap-4 py-4 first:pt-0 last:pb-0">
+                  <div className="w-20 h-24 bg-gray-100 rounded-sm overflow-hidden flex-shrink-0 border border-gray-100">
+                    <img
+                      src={getImageUrl(item.image || item.image?.[0])}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = "https://via.placeholder.com/150";
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1 flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-800">
+                        {item.title}
+                      </h3>
+                      <p className="text-xs text-gray-500 font-semibold mt-1">
+                        Quantity: {item.quantity}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-black text-gray-900">
+                        ₹{item.price}
+                      </p>
+                      <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-sm">
+                        FREE DELIVERY
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Decorative Divider */}
-        <div className="flex items-center gap-4 mb-8">
-          <div className="h-px flex-1 bg-linear-to-r from-transparent via-slate-300 to-transparent" />
-          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-          </svg>
-          <div className="h-px flex-1 bg-linear-to-r from-transparent via-slate-300 to-transparent" />
-        </div>
+        {/* --- RIGHT SIDE: PRICE DETAILS --- */}
+        <div className="space-y-4">
+          <div className="bg-white rounded-sm shadow-sm border border-gray-100 p-6 sticky top-24">
+            <h2 className="text-xs font-bold text-gray-400 uppercase mb-6 tracking-tight">
+              Price Details
+            </h2>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-          {/* Left Column:  Billing + Items */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* Billing Information */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="bg-linear-to-r from-slate-900 to-slate-700 px-6 py-4">
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  Billing Information
-                </h2>
+            <div className="space-y-4 text-sm font-medium">
+              <div className="flex justify-between text-gray-600">
+                <span>Total Product Price</span>
+                <span>₹{subtotal}</span>
+              </div>
+              <div className="flex justify-between text-green-600">
+                <span>Total Discounts</span>
+                <span>- ₹0</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Delivery Charges</span>
+                <span className="text-green-600 uppercase font-bold">Free</span>
               </div>
 
-              <div className="p-6 space-y-4">
-                {/* Full Name */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <input 
-                    type="text" 
-                    name="name" 
-                    placeholder="Enter your full name"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus: ring-2 focus:ring-slate-900/20 focus:border-slate-900 transition-all"
-                    onChange={handleChange} 
-                    disabled={loading}
-                    required
-                  />
-                </div>
+              <div className="h-px bg-gray-100 my-2"></div>
 
-                {/* Email & Phone */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Email Address <span className="text-red-500">*</span>
-                    </label>
-                    <input 
-                      type="email" 
-                      name="email" 
-                      placeholder="your@email.com"
-                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 transition-all"
-                      onChange={handleChange} 
-                      disabled={loading}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Phone Number <span className="text-red-500">*</span>
-                    </label>
-                    <input 
-                      type="tel" 
-                      name="phone" 
-                      placeholder="+91 00000 00000"
-                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 transition-all"
-                      onChange={handleChange} 
-                      disabled={loading}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Address */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Delivery Address <span className="text-red-500">*</span>
-                  </label>
-                  <textarea 
-                    name="address" 
-                    placeholder="Enter your complete delivery address..."
-                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/20 focus:border-slate-900 transition-all resize-none"
-                    rows={4}
-                    onChange={handleChange}
-                    disabled={loading}
-                    required
-                  ></textarea>
-                </div>
+              <div className="flex justify-between text-lg font-black text-gray-900">
+                <span>Order Total</span>
+                <span>₹{total}</span>
               </div>
             </div>
 
-            {/* Order Items Preview */}
-            {isCart && (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
-                  <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                    </svg>
-                    Order Items ({itemsForCheckout.length})
-                  </h2>
-                </div>
+            <button
+              onClick={payNow}
+              disabled={loading}
+              className={`w-full mt-8 py-4 font-black uppercase text-xs tracking-wider rounded-sm shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3
+                ${loading ? "bg-gray-400 cursor-not-allowed text-white" : "bg-red-600 hover:bg-black text-white"}`}
+            >
+              {loading ? (
+                "Processing..."
+              ) : (
+                <>
+                  <MdOutlineAccountBalanceWallet size={18} />
+                  Continue to Pay ₹{total}
+                </>
+              )}
+            </button>
 
-                <div className="p-6 space-y-3 max-h-80 overflow-y-auto">
-                  {itemsForCheckout.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                      {item.image && (
-                        <img 
-                          src={getImageUrl(item.image)}
-                          className="w-16 h-16 rounded-lg object-cover border border-slate-300"
-                          alt={item.title}
-                        />
-                      )}
-                      <div className="flex-1">
-                        <p className="font-medium text-slate-900">{item.title || "Product"}</p>
-                        <p className="text-sm text-slate-500">Qty: {item.quantity}</p>
-                      </div>
-                      <p className="font-semibold text-slate-900">₹{item.price * item.quantity}</p>
-                    </div>
-                  ))}
-                </div>
+            {/* Trust Badges */}
+            <div className="mt-8 pt-6 border-t border-gray-50 space-y-4">
+              <div className="flex items-center gap-3">
+                <MdVerifiedUser className="text-blue-500" size={20} />
+                <p className="text-[10px] font-bold text-gray-500 uppercase leading-tight">
+                  100% Secure Payments <br />
+                  <span className="text-gray-300 font-medium">
+                    PCI-DSS Compliant
+                  </span>
+                </p>
               </div>
-            )}
-
-          </div>
-
-          {/* Right Column: Order Summary */}
-          <div className="lg:sticky lg:top-8 h-fit">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
-              
-              {/* Header */}
-              <div className="bg-linear-to-r from-slate-900 to-slate-700 px-6 py-4">
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                  Order Summary
-                </h2>
-              </div>
-
-              <div className="p-6">
-
-                {/* Single Item Details */}
-                {isSingle && (
-                  <div className="pb-4 mb-4 border-b border-slate-200 space-y-2">
-                    <div className="flex justify-between text-slate-600">
-                      <span>Quantity</span>
-                      <span className="font-medium text-slate-900">{checkoutData.quantity}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Price per item</span>
-                      <span className="font-medium text-slate-900">₹{checkoutData.price}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Cart Summary */}
-                {isCart && (
-                  <div className="pb-4 mb-4 border-b border-slate-200">
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>{itemsForCheckout.length} items in your order</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Price Breakdown */}
-                <div className="space-y-3 mb-4">
-                  <div className="flex justify-between text-slate-700">
-                    <span>Subtotal</span>
-                    <span className="font-medium">₹{subtotal}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-700">
-                    <span>Shipping</span>
-                    <span className="font-medium text-emerald-600">FREE</span>
-                  </div>
-                  <div className="flex justify-between text-slate-700">
-                    <span>Tax</span>
-                    <span className="font-medium">₹0</span>
-                  </div>
-                </div>
-
-                {/* Total */}
-                <div className="pt-4 border-t-2 border-slate-900 mb-6">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold text-slate-900">Total</span>
-                    <span className="text-2xl font-bold text-slate-900">₹{total}</span>
-                  </div>
-                </div>
-
-                {/* Place Order Button */}
-                <button
-                  className={`w-full py-4 rounded-xl font-semibold text-white transition-all transform ${
-                    loading 
-                      ? 'bg-slate-400 cursor-not-allowed' 
-                      : 'bg-linear-to-r from-slate-900 to-slate-700 hover:from-slate-800 hover:to-slate-600 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]'
-                  }`}
-                  onClick={payNow}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Processing...
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Place Order & Pay
-                    </span>
-                  )}
-                </button>
-
-                {/* Security Badge */}
-                <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-500">
-                  <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  <span>Secure checkout powered by ArtPoint</span>
-                </div>
-
-                {/* Terms */}
-                <p className="text-xs text-slate-400 text-center mt-4">
-                  By placing your order, you agree to our{" "}
-                  <span className="text-slate-600 underline cursor-pointer">Terms & Conditions</span>
+              <div className="flex items-center gap-3">
+                <MdOutlineSecurity className="text-gray-400" size={20} />
+                <p className="text-[10px] font-bold text-gray-500 uppercase leading-tight">
+                  Easy Returns <br />
+                  <span className="text-gray-300 font-medium">
+                    7-day replacement policy
+                  </span>
                 </p>
               </div>
             </div>
           </div>
 
+          <p className="text-[10px] text-gray-400 text-center px-4">
+            By continuing, you agree to ArtPoint's{" "}
+            <span className="underline">Terms of Service</span> and{" "}
+            <span className="underline">Privacy Policy</span>.
+          </p>
         </div>
       </div>
     </div>

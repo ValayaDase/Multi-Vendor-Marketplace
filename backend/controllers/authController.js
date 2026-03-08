@@ -4,10 +4,8 @@ import { sendOtp } from "../utils/sendOtp.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Order from "../models/Order.js";
-// import CustomOrder from "../models/CustomOrder.js";
 import Cart from "../models/Cart.js";
 import Product from "../models/Product.js";
-// import Studio from "../models/Studio.js";
 dotenv.config();
 
 //================== SIGNUP ==================
@@ -28,13 +26,14 @@ export const signup = async (req, res) => {
       name,
       email,
       password: hashed,
-      otp
+      otp,
     });
 
     await sendOtp(email, otp);
 
-    res.json({ msg: "Signup successful! Please verify OTP sent to your email." });
-
+    res.json({
+      msg: "Signup successful! Please verify OTP sent to your email.",
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
@@ -60,7 +59,6 @@ export const verifyOtp = async (req, res) => {
     await user.save();
 
     res.json({ msg: "User verified successfully" });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
@@ -84,7 +82,6 @@ export const resendOtp = async (req, res) => {
     await sendOtp(email, otp);
 
     res.json({ msg: "A new OTP has been sent to your email" });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
@@ -109,15 +106,14 @@ export const login = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     res.json({
       msg: "Login successful",
       token,
-      user
+      user,
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
@@ -140,7 +136,6 @@ export const forgotPasswordOtp = async (req, res) => {
     await sendOtp(email, otp);
 
     res.json({ msg: "OTP sent to your email for password reset", email });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
@@ -161,14 +156,11 @@ export const resetPassword = async (req, res) => {
     await user.save();
 
     res.json({ msg: "Password updated successfully. Please log in." });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
 };
-
-
 
 //================= GET PROFILE ======================
 export const getProfile = async (req, res) => {
@@ -187,28 +179,28 @@ export const deleteBuyerAccount = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ msg: "User not found" });
     if (user.role !== "buyer") {
-      return res. status(403).json({ msg: "Only buyers can delete account" });
+      return res.status(403).json({ msg: "Only buyers can delete account" });
     }
 
     // 1. Keep normal orders but hide buyer info
     await Order.updateMany(
       { buyer: userId },
-      { 
+      {
         billingName: "Deleted User",
-        billingEmail: "deleted@user.com"
-      }
+        billingEmail: "deleted@user.com",
+      },
     );
 
     // 2. Handle custom orders
-    const customOrders = await CustomOrder. find({ buyer: userId });
-    
+    const customOrders = await CustomOrder.find({ buyer: userId });
+
     for (const order of customOrders) {
       // If order is completed - keep it
       if (order.status === "completed" || order.status === "in-progress") {
         // Just mark as deleted, keep images
         order.buyerDeleted = true;
         await order.save();
-      } 
+      }
       // If order is pending - delete everything
       else {
         // Delete images
@@ -229,14 +221,13 @@ export const deleteBuyerAccount = async (req, res) => {
     await Cart.deleteMany({ user: userId });
     await Product.updateMany(
       { savedBy: userId },
-      { $pull: { savedBy: userId } }
+      { $pull: { savedBy: userId } },
     );
 
     // 4. Delete user account
     await User.findByIdAndDelete(userId);
 
     res.json({ msg: "Your account has been deleted successfully." });
-    
   } catch (err) {
     console.error("Delete Buyer Account Error:", err);
     res.status(500).json({ msg: "Server error" });
@@ -251,11 +242,13 @@ export const deleteSellerAccount = async (req, res) => {
     const user = await User.findById(sellerId);
     if (!user) return res.status(404).json({ msg: "User not found" });
     if (user.role !== "seller") {
-      return res. status(403).json({ msg: "Only sellers can delete this account" });
+      return res
+        .status(403)
+        .json({ msg: "Only sellers can delete this account" });
     }
 
     // 1. Delete seller sample image
-    if (user. sellerSampleImage) {
+    if (user.sellerSampleImage) {
       const imgPath = user.sellerSampleImage.replace("/", "");
       fs.unlink(imgPath, () => {});
     }
@@ -264,7 +257,7 @@ export const deleteSellerAccount = async (req, res) => {
     const studio = await Studio.findOne({ seller: sellerId });
     if (studio && studio.artworks) {
       for (let art of studio.artworks) {
-        const imgPath = art. image.replace("/", "");
+        const imgPath = art.image.replace("/", "");
         fs.unlink(imgPath, () => {});
       }
     }
@@ -273,24 +266,24 @@ export const deleteSellerAccount = async (req, res) => {
     // 3. Keep products but mark unavailable
     await Product.updateMany(
       { seller: sellerId },
-      { stock: 0, available: false }
+      { stock: 0, available: false },
     );
 
     // 4. Keep normal orders but mark seller deleted
     await Order.updateMany(
       { seller: sellerId },
-      { orderStatus: "seller_deleted" }
+      { orderStatus: "seller_deleted" },
     );
 
     // 5. Handle custom orders
-    const customOrders = await CustomOrder. find({ seller: sellerId });
-    
+    const customOrders = await CustomOrder.find({ seller: sellerId });
+
     for (const order of customOrders) {
       // If order is completed - keep it
       if (order.status === "completed" || order.status === "in-progress") {
         order.status = "seller_deleted";
         await order.save();
-      } 
+      }
       // If order is pending - delete everything
       else {
         // Delete images
@@ -311,7 +304,6 @@ export const deleteSellerAccount = async (req, res) => {
     await User.findByIdAndDelete(sellerId);
 
     res.json({ msg: "Your seller account has been deleted permanently." });
-
   } catch (err) {
     console.error("Delete Seller Account Error:", err);
     res.status(500).json({ msg: "Server error" });

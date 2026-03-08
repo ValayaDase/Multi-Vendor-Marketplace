@@ -4,7 +4,7 @@ import axios from "axios";
 import { AiOutlineHeart, AiFillStar } from "react-icons/ai";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
-import api, {getImageUrl} from "../../config/api";
+import api, { getImageUrl } from "../../config/api";
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -21,13 +21,14 @@ export default function ProductDetails() {
         productId: product._id,
         sellerId: product.seller,
         price: product.price,
-        quantity: 1
-      })
+        title: product.title,
+        image: product.images[0],
+        quantity: 1,
+      }),
     );
 
     navigate("/buyer/checkout");
   };
-
 
   const checkCart = async () => {
     const token = localStorage.getItem("token");
@@ -40,39 +41,38 @@ export default function ProductDetails() {
   };
 
   useEffect(() => {
-  const fetchProductAndSeller = async () => {
-    try {
-      // 1. Pehle product fetch karein
-      const productRes = await api.get(`/products/${id}`);
-      const productData = productRes.data;
-      setProduct(productData);
+    const fetchProductAndSeller = async () => {
+      try {
+        // product fetching
+        const productRes = await api.get(`/products/${id}`);
+        const productData = productRes.data;
+        setProduct(productData);
 
-      // 2. Ab check karein ki sellerId valid hai ya nahi
-      if (productData.seller) {
-        const sellerRes = await api.get(`/seller/${productData.seller}`);
-        setSeller(sellerRes.data);
+        // check if seller info is available, then fetch seller details
+        if (productData.seller) {
+          const sellerRes = await api.get(`/seller/${productData.seller}`);
+          setSeller(sellerRes.data);
+        }
+
+        // Check if product is already in cart
+        await checkCart();
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        // If product not found, redirect back to buyer dashboard
       }
+    };
 
-      // 3. Cart check karein
-      await checkCart();
-      
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      // Agar error aaye toh user ko batayein ya state handle karein
+    if (id) {
+      fetchProductAndSeller();
     }
-  };
-
-  if (id) {
-    fetchProductAndSeller();
-  }
-}, [id]);
+  }, [id]);
 
   // Function to save product
   const saveProduct = async () => {
     const token = localStorage.getItem("token");
     if (!token) return alert("Please login");
 
-    const res = await api.post("/products/save",{ productId: id },);
+    const res = await api.post("/products/save", { productId: id });
     alert(res.data.msg);
   };
 
@@ -80,7 +80,7 @@ export default function ProductDetails() {
     const token = localStorage.getItem("token");
     if (!token) return alert("Please login");
 
-    const res = await api.post("/cart/add",{ productId: id });
+    const res = await api.post("/cart/add", { productId: id });
 
     alert(res.data.msg);
     window.dispatchEvent(new Event("cartUpdated"));
@@ -214,8 +214,6 @@ export default function ProductDetails() {
                       {seller.name}
                     </span>
                   </div>
-
-                  
                 </div>
               </div>
             )}
@@ -316,7 +314,10 @@ export default function ProductDetails() {
                   </button>
                 )}
 
-                <button onClick={buyNow} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-4 rounded-xl text-base font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+                <button
+                  onClick={buyNow}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-4 rounded-xl text-base font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                >
                   Buy Now
                   <svg
                     className="w-5 h-5"

@@ -4,7 +4,7 @@ import {
   getBuyerOrders,
   getSellerOrders,
   updateOrderStatus,
-  cancelOrder
+  cancelOrder,
 } from "../controllers/orderController.js";
 import auth from "../middleware/authMiddleware.js";
 

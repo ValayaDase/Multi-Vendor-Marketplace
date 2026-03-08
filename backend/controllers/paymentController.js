@@ -10,11 +10,10 @@ import { sendEmail } from "../utils/sendEmail.js";
 // -------- NORMAL PRODUCT PAYMENT --------
 export const createProductPayment = async (req, res) => {
   try {
-    const buyerId = req. user.id;
+    const buyerId = req.user.id;
     const { orderId, billingInfo } = req.body;
 
-    if (! orderId)
-      return res.status(400).json({ msg: "Order ID required" });
+    if (!orderId) return res.status(400).json({ msg: "Order ID required" });
 
     const order = await Order.findById(orderId);
     if (!order) return res.status(404).json({ msg: "Order not found" });
@@ -32,16 +31,16 @@ export const createProductPayment = async (req, res) => {
       seller: sellerId,
       buyerName: billingInfo.name,
       buyerEmail: billingInfo.email,
-      order:  orderId,
+      order: orderId,
       amount: order.price,
       type: "product",
-      paymentStatus:  "received"
+      paymentStatus: "received",
     });
 
     order.paymentRef = payment._id;
     order.paymentStatus = "paid";
     order.orderStatus = "confirmed";
-    
+
     // ✅ Save billing info to ORDER, not payment
     if (billingInfo) {
       order.billingName = billingInfo.name;
@@ -49,19 +48,17 @@ export const createProductPayment = async (req, res) => {
       order.billingPhone = billingInfo.phone;
       order.billingAddress = billingInfo.address;
     }
-    
+
     await order.save();
 
     await Cart.deleteMany({ user: buyerId, product: order.product });
 
     res.json({ msg: "Payment successful", payment, order });
-
   } catch (err) {
     console.error("Payment error:", err);
     res.status(500).json({ msg: "Payment failed" });
   }
 };
-
 
 // -------- CUSTOM ORDER ADVANCE --------
 export const payAdvance = async (req, res) => {
@@ -75,7 +72,8 @@ export const payAdvance = async (req, res) => {
     if (!custom) return res.status(404).json({ msg: "Custom order not found" });
 
     // Prevent duplicate advance if you track advancePaid
-    if (custom.advancePaid) return res.status(400).json({ msg: "Advance already paid" });
+    if (custom.advancePaid)
+      return res.status(400).json({ msg: "Advance already paid" });
 
     const payment = await Payment.create({
       buyer: buyerId,
@@ -111,7 +109,8 @@ export const payFinal = async (req, res) => {
     const custom = await CustomOrder.findById(customOrderId);
     if (!custom) return res.status(404).json({ msg: "Custom order not found" });
 
-    if (custom.finalPaid) return res.status(400).json({ msg: "Final already paid" });
+    if (custom.finalPaid)
+      return res.status(400).json({ msg: "Final already paid" });
 
     const payment = await Payment.create({
       buyer: buyerId,
@@ -138,8 +137,9 @@ export const payFinal = async (req, res) => {
 // -------- FETCH PAYMENTS --------
 export const getMyPayments = async (req, res) => {
   try {
-    const payments = await Payment.find({ $or: [{ buyer: req.user.id }, { seller: req.user.id }] })
-      .populate("order customOrder buyer seller");
+    const payments = await Payment.find({
+      $or: [{ buyer: req.user.id }, { seller: req.user.id }],
+    }).populate("order customOrder buyer seller");
     res.json(payments);
   } catch (err) {
     console.error("getMyPayments error:", err);
@@ -150,9 +150,12 @@ export const getMyPayments = async (req, res) => {
 export const getAllPayments = async (req, res) => {
   try {
     // optional: ensure admin
-    if (req.user.role !== "admin") return res.status(403).json({ msg: "Admin only" });
+    if (req.user.role !== "admin")
+      return res.status(403).json({ msg: "Admin only" });
 
-    const payments = await Payment.find().populate("buyer seller order customOrder");
+    const payments = await Payment.find().populate(
+      "buyer seller order customOrder",
+    );
     res.json(payments);
   } catch (err) {
     console.error("getAllPayments error:", err);
@@ -160,11 +163,10 @@ export const getAllPayments = async (req, res) => {
   }
 };
 
-
 // -------- ADMIN REFUND PAYMENT --------
 export const refundPayment = async (req, res) => {
   try {
-    if (req.user. role !== "admin") {
+    if (req.user.role !== "admin") {
       return res.status(403).json({ msg: "Admin only" });
     }
 
@@ -172,12 +174,12 @@ export const refundPayment = async (req, res) => {
 
     // Find payment
     const payment = await Payment.findById(paymentId)
-      .populate('buyer')
-      .populate('order')
-      .populate('customOrder');
+      .populate("buyer")
+      .populate("order")
+      .populate("customOrder");
 
     if (!payment) {
-      return res. status(404).json({ msg: "Payment not found" });
+      return res.status(404).json({ msg: "Payment not found" });
     }
 
     if (payment.paymentStatus === "refunded") {
@@ -189,9 +191,9 @@ export const refundPayment = async (req, res) => {
     await payment.save();
 
     // Update related order
-    if (payment. order) {
-      const order = await Order.findById(payment. order).populate('product');
-      
+    if (payment.order) {
+      const order = await Order.findById(payment.order).populate("product");
+
       if (order) {
         order.orderStatus = "refunded";
         order.paymentStatus = "refunded";
@@ -203,7 +205,9 @@ export const refundPayment = async (req, res) => {
           if (product) {
             product.stock = (product.stock || 0) + order.quantity;
             await product.save();
-            console.log(`Stock restored: +${order.quantity} for product ${product._id}`);
+            console.log(
+              `Stock restored: +${order.quantity} for product ${product._id}`,
+            );
           }
         }
       }
@@ -212,7 +216,7 @@ export const refundPayment = async (req, res) => {
     // Update custom order
     if (payment.customOrder) {
       await CustomOrder.findByIdAndUpdate(payment.customOrder, {
-        status: "refunded"
+        status: "refunded",
       });
     }
 
@@ -222,7 +226,7 @@ export const refundPayment = async (req, res) => {
         await sendEmail(
           payment.buyer.email,
           "Payment Refunded - Art Point",
-          `Hello ${payment.buyer.name || 'Customer'},
+          `Hello ${payment.buyer.name || "Customer"},
 
 Your payment of ₹${payment.amount} has been successfully refunded by the admin.
 
@@ -236,9 +240,9 @@ Order Details:
 If you have any questions, please contact our support team. 
 
 Thank you,
-Art Point Team`
+Art Point Team`,
         );
-        
+
         console.log("Refund email sent to:", payment.buyer.email);
       }
     } catch (emailErr) {
@@ -248,14 +252,13 @@ Art Point Team`
 
     console.log("Refund completed for payment:", paymentId);
     res.json({ msg: "Payment refunded successfully" });
-
   } catch (err) {
     console.error("=== REFUND ERROR ===");
-    console.error("Error:", err. message);
+    console.error("Error:", err.message);
     console.error("Stack:", err.stack);
-    res.status(500).json({ 
-      msg: "Refund failed", 
-      error:  err.message 
+    res.status(500).json({
+      msg: "Refund failed",
+      error: err.message,
     });
   }
 };
@@ -276,14 +279,14 @@ export const createBulkCartPayment = async (req, res) => {
     // Process each order
     for (let orderId of orderIds) {
       try {
-        const order = await Order.findById(orderId).populate('product');
-        
+        const order = await Order.findById(orderId).populate("product");
+
         if (!order) {
-          failedOrders. push({ orderId, reason: "Order not found" });
+          failedOrders.push({ orderId, reason: "Order not found" });
           continue;
         }
 
-        if (order.buyer. toString() !== buyerId) {
+        if (order.buyer.toString() !== buyerId) {
           failedOrders.push({ orderId, reason: "Not authorized" });
           continue;
         }
@@ -296,14 +299,14 @@ export const createBulkCartPayment = async (req, res) => {
         // Create payment
         const payment = await Payment.create({
           buyer: buyerId,
-          seller:  order.seller,
-          buyerName: billingInfo.name,    
+          seller: order.seller,
+          buyerName: billingInfo.name,
           buyerEmail: billingInfo.email,
           order: orderId,
           amount: order.price,
           type: "product",
-          paymentStatus:  "received",
-          billingInfo
+          paymentStatus: "received",
+          billingInfo,
         });
 
         // Update order
@@ -316,7 +319,6 @@ export const createBulkCartPayment = async (req, res) => {
         await Cart.deleteMany({ user: buyerId, product: order.product._id });
 
         successfulOrders.push(orderId);
-
       } catch (err) {
         console.error(`Error processing order ${orderId}:`, err);
         failedOrders.push({ orderId, reason: err.message });
@@ -324,9 +326,9 @@ export const createBulkCartPayment = async (req, res) => {
     }
 
     if (successfulOrders.length === 0) {
-      return res.status(400).json({ 
-        msg: "All payments failed", 
-        failedOrders 
+      return res.status(400).json({
+        msg: "All payments failed",
+        failedOrders,
       });
     }
 
@@ -335,9 +337,8 @@ export const createBulkCartPayment = async (req, res) => {
       successfulOrders,
       failedOrders,
       totalSuccess: successfulOrders.length,
-      totalFailed: failedOrders.length
+      totalFailed: failedOrders.length,
     });
-
   } catch (err) {
     console.error("Bulk payment error:", err);
     res.status(500).json({ msg: "Bulk payment failed" });

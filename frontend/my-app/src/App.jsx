@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route,Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AuthProvider from "./AuthContext";
 
 import AuthLayout from "./authentication/AuthLayout";
@@ -25,7 +25,7 @@ import SellersPage from "./dashboard/admin/SellersPage";
 import OrdersPage from "./dashboard/admin/OrdersPage";
 import SellerRequests from "./dashboard/admin/SellerRequests";
 import Dashboard from "./dashboard/admin/Dashboard";
-import ApprovalQueue from "./dashboard/admin/ApprovalQueue";  
+import ApprovalQueue from "./dashboard/admin/ApprovalQueue";
 
 // SELLER
 import SellerDashboard from "./dashboard/seller/SellerDashboard";
@@ -37,7 +37,6 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-
           {/* DEFAULT LANDING PAGE */}
           <Route path="/" element={<BuyerLayout />}>
             <Route index element={<BuyersDashboard />} />
@@ -67,18 +66,16 @@ export default function App() {
             <Route path="purchased" element={<PurchasedOrders />} />
             <Route path="cart" element={<CartPage />} />
 
-
             {/* Product Details */}
             <Route path="product/:id" element={<ProductDetails />} />
 
             <Route path="/buyer/checkout" element={<Checkout />} />
-
           </Route>
 
           {/* ADMIN */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="/admin/dashboard" />} />
-            
+
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="sellers" element={<SellersPage />} />
             <Route path="orders" element={<OrdersPage />} />
@@ -86,13 +83,11 @@ export default function App() {
             <Route path="approval-queue" element={<ApprovalQueue />} />
           </Route>
 
-
           {/* SELLER */}
           <Route path="/seller" element={<SellerLayout />}>
             <Route index element={<SellerDashboard />} />
             <Route path="products" element={<MyProducts />} />
           </Route>
-
         </Routes>
       </BrowserRouter>
     </AuthProvider>

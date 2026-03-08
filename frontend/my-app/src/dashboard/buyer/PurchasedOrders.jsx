@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import api , {getImageUrl} from "../../config/api";
+import api, { getImageUrl } from "../../config/api";
 
 export default function PurchasedOrders() {
   const [orders, setOrders] = useState([]);
@@ -9,37 +9,31 @@ export default function PurchasedOrders() {
   const user = JSON.parse(localStorage.getItem("user"));
 
   const fetchOrders = () => {
-  api
-    .get("/orders/buyer")
-    .then((res) => setOrders(res.data))
-    .catch((err) => console.log(err));
-};
+    api
+      .get("/orders/buyer")
+      .then((res) => setOrders(res.data))
+      .catch((err) => console.log(err));
+  };
 
   // Call once when component loads
   useEffect(() => {
     fetchOrders();
   }, []);
 
-
   const cancelNormalOrder = async (orderId) => {
     const confirmCancel = window.confirm("Cancel this order?");
     if (!confirmCancel) return;
 
     try {
-      await api.post(
-        "/orders/cancel",
-        { orderId }
-      );
+      await api.post("/orders/cancel", { orderId });
 
       alert("Order cancelled");
-      fetchOrders();  //  refresh list after cancel
+      fetchOrders(); //  refresh list after cancel
     } catch (err) {
       console.error(err);
       alert("Unable to cancel order");
     }
   };
-
-
 
   return (
     <div className="min-h-screen bg-linear-to-b from-slate-50 via-white to-slate-50">
@@ -124,9 +118,9 @@ export default function PurchasedOrders() {
                         alt="Product"
                         className="w-28 h-28 object-cover rounded-xl"
                       />
-                        <h3>{o.product?.title}</h3>
-                        <p>{o.product?.category}</p>
-                        {/* <p>₹{o.price}</p>
+                      <h3>{o.product?.title}</h3>
+                      <p>{o.product?.category}</p>
+                      {/* <p>₹{o.price}</p>
                         <span>{o.orderStatus}</span> */}
                     </div>
 
@@ -144,8 +138,12 @@ export default function PurchasedOrders() {
                         <p className="text-2xl font-bold text-slate-900 mt-3">
                           ₹{o.price.toLocaleString("en-IN")}
                         </p>
-                        <p className="text-sm text-gray-500 mt-2">Status: {o.orderStatus}</p>
-                        {["pending", "confirmed", "processing"].includes(o.orderStatus) && (
+                        <p className="text-sm text-gray-500 mt-2">
+                          Status: {o.orderStatus}
+                        </p>
+                        {["pending", "confirmed", "processing"].includes(
+                          o.orderStatus,
+                        ) && (
                           <button
                             onClick={() => cancelNormalOrder(o._id)}
                             className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition"
@@ -153,10 +151,7 @@ export default function PurchasedOrders() {
                             Cancel Order
                           </button>
                         )}
-
                       </div>
-
-                      
                     </div>
                   </div>
                 </div>
@@ -167,8 +162,8 @@ export default function PurchasedOrders() {
                     o.status === "Delivered"
                       ? "bg-emerald-500"
                       : o.status === "Cancelled"
-                      ? "bg-red-500"
-                      : "bg-amber-500"
+                        ? "bg-red-500"
+                        : "bg-amber-500"
                   }`}
                 />
               </div>

@@ -9,8 +9,8 @@ export const sendEmail = async (to, subject, html) => {
         pass: process.env.EMAIL_PASS,
       },
       tls: {
-        rejectUnauthorized: false  // Accept self-signed certificates
-      }
+        rejectUnauthorized: false, // Accept self-signed certificates
+      },
     });
 
     await transporter.sendMail({

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import ProductCard from "./ProductCard";
 import { useNavigate } from "react-router-dom";
-import api , {getImageUrl} from "../../config/api";
+import api, { getImageUrl } from "../../config/api";
 
 export default function SavedProducts() {
   const [saved, setSaved] = useState([]);

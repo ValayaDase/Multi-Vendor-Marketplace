@@ -15,21 +15,13 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
   const [preview, setPreview] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // const CATEGORY_LIST = [
-  //   { label: "Paintings", value: "painting" },
-  //   { label: "Home Decor", value: "home-decor" },
-  //   { label: "Pottery", value: "pottery" },
-  //   { label: "Clay Art", value: "clay-art" },
-  //   { label: "Resin Art", value: "resin-art" }
-  // ];
-
   const CATEGORY_LIST = [
-  { label: "Fashion & Apparel", value: "fashion" },
-  { label: "Home & Kitchen", value: "home-kitchen" },
-  { label: "Electronics", value: "electronics" },
-  { label: "Beauty & Personal Care", value: "beauty" },
-  { label: "Footwear", value: "footwear" },
-];
+    { label: "Fashion & Apparel", value: "fashion" },
+    { label: "Home & Kitchen", value: "home-kitchen" },
+    { label: "Electronics", value: "electronics" },
+    { label: "Beauty & Personal Care", value: "beauty" },
+    { label: "Footwear", value: "footwear" },
+  ];
 
   useEffect(() => {
     if (product) {
@@ -105,7 +97,10 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
             Fill in the details for your artwork
           </p>
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-black transition">
+        <button
+          onClick={onClose}
+          className="text-gray-400 hover:text-black transition"
+        >
           <MdClose size={24} />
         </button>
       </div>
@@ -113,7 +108,9 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Title */}
         <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Artwork Title</label>
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            Artwork Title
+          </label>
           <input
             required
             type="text"
@@ -126,21 +123,27 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
 
         {/* Description */}
         <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Description</label>
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            Description
+          </label>
           <textarea
             required
             rows="3"
             value={inputs.description}
             placeholder="Describe the medium, inspiration, and size..."
             className="w-full bg-gray-50 border border-gray-100 px-4 py-3 text-sm focus:bg-white focus:border-black outline-none transition-all rounded-sm"
-            onChange={(e) => setInputs({ ...inputs, description: e.target.value })}
+            onChange={(e) =>
+              setInputs({ ...inputs, description: e.target.value })
+            }
           />
         </div>
 
         {/* Price & Stock Row */}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Price (₹)</label>
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              Price (₹)
+            </label>
             <input
               required
               type="number"
@@ -151,7 +154,9 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Stock</label>
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              Stock
+            </label>
             <input
               required
               type="number"
@@ -165,7 +170,9 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
 
         {/* Category */}
         <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Category</label>
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            Category
+          </label>
           <select
             className="w-full bg-gray-50 border border-gray-100 px-4 py-3 text-sm focus:bg-white focus:border-black outline-none transition-all rounded-sm appearance-none cursor-pointer"
             value={inputs.category}
@@ -181,21 +188,39 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
 
         {/* Image Upload */}
         <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Product Image</label>
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            Product Image
+          </label>
           <div className="relative group border-2 border-dashed border-gray-100 bg-gray-50 p-4 text-center hover:bg-gray-100 transition rounded-sm">
             <label className="cursor-pointer block">
               {preview ? (
                 <div className="relative">
-                  <img src={preview} alt="Preview" className="h-32 mx-auto object-contain rounded-sm shadow-sm" />
-                  <p className="text-[10px] font-bold text-black mt-2 underline">Change Image</p>
+                  <img
+                    src={preview}
+                    alt="Preview"
+                    className="h-32 mx-auto object-contain rounded-sm shadow-sm"
+                  />
+                  <p className="text-[10px] font-bold text-black mt-2 underline">
+                    Change Image
+                  </p>
                 </div>
               ) : (
                 <div className="py-4">
-                  <MdCloudUpload size={30} className="mx-auto text-gray-300 mb-2" />
-                  <p className="text-xs font-bold text-gray-500 uppercase">Click to upload photo</p>
+                  <MdCloudUpload
+                    size={30}
+                    className="mx-auto text-gray-300 mb-2"
+                  />
+                  <p className="text-xs font-bold text-gray-500 uppercase">
+                    Click to upload photo
+                  </p>
                 </div>
               )}
-              <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
+              <input
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={handleImageChange}
+              />
             </label>
           </div>
         </div>
@@ -204,10 +229,16 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
         <button
           disabled={loading}
           className={`w-full py-4 rounded-sm font-black text-xs uppercase tracking-[0.2em] transition duration-300 shadow-xl ${
-            loading ? "bg-gray-200 text-gray-400" : "bg-black text-white hover:bg-gray-800"
+            loading
+              ? "bg-gray-200 text-gray-400"
+              : "bg-black text-white hover:bg-gray-800"
           }`}
         >
-          {loading ? "Processing..." : product ? "Update product" : "Publish product"}
+          {loading
+            ? "Processing..."
+            : product
+              ? "Update product"
+              : "Publish product"}
         </button>
       </form>
     </div>

@@ -9,12 +9,15 @@ const MyProducts = () => {
   const [editingProduct, setEditingProduct] = useState(null);
 
   const fetchProducts = () => {
-    api.get("/products/mine")
+    api
+      .get("/products/mine")
       .then((res) => setProducts(res.data))
       .catch((err) => console.log(err));
   };
 
-  useEffect(() => { fetchProducts(); }, []);
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   const deleteProduct = async (id) => {
     if (!confirm("Are you sure you want to delete this artwork?")) return;
@@ -30,7 +33,6 @@ const MyProducts = () => {
   return (
     <div className="min-h-screen bg-[#fcfcfd] py-12">
       <div className="max-w-7xl mx-auto px-6">
-        
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div className="text-center mb-10">
@@ -60,9 +62,12 @@ const MyProducts = () => {
             <div className="p-6 bg-gray-50 rounded-full mb-6">
               <FiBox size={48} className="text-gray-300" />
             </div>
-            <h3 className="text-3xl font-light text-gray-900 mb-3">Your gallery is empty</h3>
+            <h3 className="text-3xl font-light text-gray-900 mb-3">
+              Your gallery is empty
+            </h3>
             <p className="text-gray-500 text-base">
-              Ready to showcase your creativity? Upload your first masterpiece today.
+              Ready to showcase your creativity? Upload your first masterpiece
+              today.
             </p>
           </div>
         ) : (
@@ -79,7 +84,7 @@ const MyProducts = () => {
                     alt={p.title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
-                  
+
                   {/* Category Badge */}
                   <div className="absolute top-4 left-4">
                     <span className="bg-white/90 backdrop-blur-md px-3 py-1 text-[10px] font-black uppercase tracking-widest text-black shadow-sm">
@@ -89,12 +94,21 @@ const MyProducts = () => {
 
                   {/* Actions Overlay */}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
-                     <button onClick={() => { setEditingProduct(p); setOpenForm(true); }} className="p-3 bg-white text-black rounded-full hover:bg-gray-100 transition">
-                        <FiEdit3 size={18} />
-                     </button>
-                     <button onClick={() => deleteProduct(p._id)} className="p-3 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition">
-                        <FiTrash2 size={18} />
-                     </button>
+                    <button
+                      onClick={() => {
+                        setEditingProduct(p);
+                        setOpenForm(true);
+                      }}
+                      className="p-3 bg-white text-black rounded-full hover:bg-gray-100 transition"
+                    >
+                      <FiEdit3 size={18} />
+                    </button>
+                    <button
+                      onClick={() => deleteProduct(p._id)}
+                      className="p-3 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition"
+                    >
+                      <FiTrash2 size={18} />
+                    </button>
                   </div>
                 </div>
 
@@ -124,7 +138,10 @@ const MyProducts = () => {
           <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl relative">
             <ProductForm
               product={editingProduct}
-              onClose={() => { setOpenForm(false); setEditingProduct(null); }}
+              onClose={() => {
+                setOpenForm(false);
+                setEditingProduct(null);
+              }}
               onProductAdded={fetchProducts}
             />
           </div>

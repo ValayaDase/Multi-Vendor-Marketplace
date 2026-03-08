@@ -14,62 +14,60 @@ export const createProduct = async (req, res) => {
       category: req.body.category,
       stock: req.body.stock,
       images: [image],
-      status: "pending"
+      status: "pending",
     });
 
     res.json({ msg: "Product added", product });
-
   } catch (err) {
     res.status(500).json({ msg: "Error", err });
   }
 };
 
+export const getSellerProducts = async (req, res) => {
+  try {
+    const products = await Product.find({ seller: req.user.id });
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ msg: "Error", err });
+  }
+};
 
-export const getSellerProducts = async(req,res)=>{
-    try{
-        const products = await Product.find({seller:req.user.id});
-        res.json(products);
-    } catch (err) {
-        res.status(500).json({ msg: "Error", err });
+// delete product from seller my product.jsx
+export const deleteProduct = async (req, res) => {
+  try {
+    const p = await Product.findById(req.params.id);
+    if (!p) {
+      return res.status(404).json({ msg: "Product not found" });
     }
-}
 
-// delete product from seller my product.jsx 
-export const deleteProduct = async(req,res)=>{
-    try{
-        const p = await Product.findById(req.params.id);
-        if(!p){
-            return res.status(404).json({ msg: "Product not found" });
-        }
-
-        if(p.seller.toString() !==  req.user.id){
-            return  res.status(403).json({ msg: "Unauthorized" });
-        }
-
-        // deleting product image from uploads folder
-        if (p.images && p.images.length > 0) {
-          const img = p.images[0];  
-
-          let imgPath = img.startsWith("/") ? img.slice(1) : img;
-          const filePath = path.join(process.cwd(), imgPath);
-
-          fs.unlink(filePath, (err) => {
-            if (err) {
-              console.log("Failed to delete product image:", err.message);
-            } else {
-              console.log("Product image deleted:", filePath);
-            }
-          });
-        }
-
-        await p.deleteOne();
-        res.json({msg: "Deleted Successfully"});
-    } catch (err) {
-        res.status(500).json({ msg: "Error" });
+    if (p.seller.toString() !== req.user.id) {
+      return res.status(403).json({ msg: "Unauthorized" });
     }
-}
 
-// updating product from seller side 
+    // deleting product image from uploads folder
+    if (p.images && p.images.length > 0) {
+      const img = p.images[0];
+
+      let imgPath = img.startsWith("/") ? img.slice(1) : img;
+      const filePath = path.join(process.cwd(), imgPath);
+
+      fs.unlink(filePath, (err) => {
+        if (err) {
+          console.log("Failed to delete product image:", err.message);
+        } else {
+          console.log("Product image deleted:", filePath);
+        }
+      });
+    }
+
+    await p.deleteOne();
+    res.json({ msg: "Deleted Successfully" });
+  } catch (err) {
+    res.status(500).json({ msg: "Error" });
+  }
+};
+
+// updating product from seller side
 export const updateProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -100,22 +98,22 @@ export const updateProduct = async (req, res) => {
   }
 };
 
+// fetching all products for buyers dasshboard
 
-// fetching all products for buyers dasshboard 
-
-export const getAllProducts = async(req,res)=>{
-  try{
+export const getAllProducts = async (req, res) => {
+  try {
     const products = await Product.find({ status: "approved" })
       .populate("seller", "role")
-      .sort({createdAt:-1});     // this will give newest to oldest products
-    
-      const filtered = products.filter(p=>p.seller.role === "seller");
-      res.json(filtered);
+      .sort({ createdAt: -1 }); // this will give newest to oldest products
+
+    const filtered = products.filter((p) => p.seller.role === "seller");
+    res.json(filtered);
+  } catch (err) {
+    res
+      .status(500)
+      .json({ msg: "Error fetching all products for buyers dashboard " });
   }
-  catch(err){
-    res.status(500).json({ msg: "Error fetching all products for buyers dashboard " });
-  }
-}
+};
 
 // fetching single product details for buyer
 
@@ -128,7 +126,6 @@ export const getProductById = async (req, res) => {
     }
 
     res.json(product);
-
   } catch (err) {
     console.error("Get Product Error:", err);
     res.status(500).json({ msg: "Server error" });
@@ -145,7 +142,7 @@ export const toggleSaveProduct = async (req, res) => {
     if (!product) return res.json({ msg: "Product not found" });
 
     const index = product.savedBy.findIndex(
-      (id) => id.toString() === userId.toString()
+      (id) => id.toString() === userId.toString(),
     );
 
     if (index === -1) {
@@ -176,4 +173,3 @@ export const getSavedProducts = async (req, res) => {
     res.status(500).json({ msg: "Error fetching saved products" });
   }
 };
-

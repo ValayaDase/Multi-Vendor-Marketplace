@@ -47,15 +47,15 @@ const productSchema = new mongoose.Schema(
       },
     ],
 
-    status: { 
-      type: String, 
-      enum: ['pending', 'approved', 'rejected'], 
-      default: 'pending' 
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
     },
-    
-    adminRemark: { type: String }
+
+    adminRemark: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("Product", productSchema);

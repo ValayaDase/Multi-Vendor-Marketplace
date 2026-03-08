@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import api , {getImageUrl} from "../../config/api";
+import api, { getImageUrl } from "../../config/api";
 
 export default function CartPage() {
   const [items, setItems] = useState([]);
@@ -33,16 +33,17 @@ export default function CartPage() {
 
   const total = items.reduce(
     (acc, item) => acc + item.product.price * item.quantity,
-    0
+    0,
   );
 
   return (
     <div className="min-h-screen bg-linear-to-b from-slate-50 via-white to-slate-50">
       <div className="max-w-5xl mx-auto px-4 py-8">
-
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-4xl font-light text-gray-900 mb-2">Shopping Cart</h1>
+          <h1 className="text-4xl font-light text-gray-900 mb-2">
+            Shopping Cart
+          </h1>
           <p className="text-gray-500">{items.length} items in your cart</p>
         </div>
 
@@ -58,7 +59,6 @@ export default function CartPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
             {/* Items */}
             <div className="lg:col-span-2 space-y-4">
               {items.map((item) => (
@@ -66,9 +66,10 @@ export default function CartPage() {
                   key={item._id}
                   className="bg-white border rounded-2xl shadow-sm p-5 flex gap-5"
                 >
-                  {/* CLICK → Product Details, NOT checkout */}
                   <div
-                    onClick={() => navigate(`/buyer/product/${item.product._id}`)}
+                    onClick={() =>
+                      navigate(`/buyer/product/${item.product._id}`)
+                    }
                     className="cursor-pointer"
                   >
                     <img
@@ -80,7 +81,9 @@ export default function CartPage() {
 
                   {/* Info */}
                   <div className="flex-1 flex flex-col justify-between">
-                    <h2 className="text-lg font-semibold">{item.product.title}</h2>
+                    <h2 className="text-lg font-semibold">
+                      {item.product.title}
+                    </h2>
                     <p className="text-xl font-bold">₹{item.product.price}</p>
 
                     <div className="flex justify-between mt-4">
@@ -90,7 +93,9 @@ export default function CartPage() {
                         <div className="flex border rounded-lg overflow-hidden">
                           <button
                             disabled={item.quantity <= 1}
-                            onClick={() => updateQty(item._id, item.quantity - 1)}
+                            onClick={() =>
+                              updateQty(item._id, item.quantity - 1)
+                            }
                             className="px-3"
                           >
                             −
@@ -99,7 +104,9 @@ export default function CartPage() {
                           <span className="px-4">{item.quantity}</span>
 
                           <button
-                            onClick={() => updateQty(item._id, item.quantity + 1)}
+                            onClick={() =>
+                              updateQty(item._id, item.quantity + 1)
+                            }
                             className="px-3"
                           >
                             +
@@ -136,31 +143,35 @@ export default function CartPage() {
               <button
                 className="mt-6 w-full bg-slate-900 text-white py-3 rounded-full hover:bg-slate-800"
                 onClick={() => {
-                  console.log("Cart items:", items); 
+                  console.log("Cart items:", items);
 
                   const checkoutData = {
                     mode: "cart",
                     items: items.map((i) => {
-                      console.log("Product ID:", i.product._id); 
+                      console.log("Product ID:", i.product._id);
                       return {
-                        productId: i. product._id,
+                        productId: i.product._id,
                         sellerId: i.product.seller,
                         quantity: i.quantity,
                         price: i.product.price,
+                        title: i.product.title,
+                        image: i.product.images[0],
                       };
                     }),
                   };
 
-                  console.log("Final checkout data:", checkoutData); 
+                  console.log("Final checkout data:", checkoutData);
 
-                  localStorage.setItem("checkoutItem", JSON.stringify(checkoutData));
+                  localStorage.setItem(
+                    "checkoutItem",
+                    JSON.stringify(checkoutData),
+                  );
                   navigate("/buyer/checkout");
                 }}
               >
                 Proceed to Checkout
               </button>
             </div>
-
           </div>
         )}
       </div>

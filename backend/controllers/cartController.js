@@ -15,29 +15,24 @@ export const addToCart = async (req, res) => {
 
     await Cart.create({ user, product: productId });
     res.json({ msg: "Added to cart!" });
-
   } catch (err) {
     console.log(err);
     res.status(500).json({ msg: "Error adding to cart" });
   }
 };
 
-
 export const getCartItems = async (req, res) => {
   try {
     const user = req.user.id;
 
-    const items = await Cart.find({ user })
-      .populate("product"); // to get product details
+    const items = await Cart.find({ user }).populate("product"); // to get product details
 
     res.json(items);
-
   } catch (err) {
     console.log(err);
     res.status(500).json({ msg: "Error fetching cart" });
   }
 };
-
 
 export const removeFromCart = async (req, res) => {
   try {
@@ -50,7 +45,6 @@ export const removeFromCart = async (req, res) => {
     res.status(500).json({ msg: "Error removing item" });
   }
 };
-
 
 export const updateQuantity = async (req, res) => {
   try {
@@ -69,7 +63,6 @@ export const updateQuantity = async (req, res) => {
   }
 };
 
-
 export const getCartCount = async (req, res) => {
   try {
     const user = req.user.id;
@@ -80,4 +73,3 @@ export const getCartCount = async (req, res) => {
     res.status(500).json({ msg: "Error fetching cart count" });
   }
 };
-

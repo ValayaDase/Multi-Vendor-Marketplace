@@ -22,7 +22,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const MONGO_URI = process.env. MONGO_URI;
+const MONGO_URI = process.env.MONGO_URI;
 const PORT = process.env.PORT || 5000;
 
 // ================= DATABASE CONNECT =================
@@ -46,7 +46,7 @@ async function createAdmin() {
     email: "admin@gmail.com",
     password: hashed,
     role: "admin",
-    verified: true
+    verified: true,
   });
 
   console.log("Admin created:  admin@gmail.com | password: admin123");

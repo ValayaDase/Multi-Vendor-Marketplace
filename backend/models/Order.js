@@ -54,14 +54,14 @@ const orderSchema = new mongoose.Schema(
     orderStatus: {
       type: String,
       enum: [
-        "pending",      // order created but no payment yet
-        "confirmed",    // payment done
-        "processing",   // seller preparing product
-        "shipped",      // seller shipped it
-        "delivered",    // completed
+        "pending", // order created but no payment yet
+        "confirmed", // payment done
+        "processing", // seller preparing product
+        "shipped", // seller shipped it
+        "delivered", // completed
         "cancelled",
         "refunded",
-        "seller_deleted" // seller deleted their account
+        "seller_deleted", // seller deleted their account
       ],
       default: "pending",
     },
@@ -71,7 +71,7 @@ const orderSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("Order", orderSchema);

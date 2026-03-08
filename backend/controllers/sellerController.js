@@ -9,14 +9,14 @@ import Product from "../models/Product.js";
 export const sendSellerRequest = async (req, res) => {
   try {
     // 1. Frontend se saara data extract karein
-    const { 
-      userId, 
-      businessName, 
-      gstin, 
-      description, 
-      accountNumber, 
-      ifscCode, 
-      bankName 
+    const {
+      userId,
+      businessName,
+      gstin,
+      description,
+      accountNumber,
+      ifscCode,
+      bankName,
     } = req.body;
 
     // 2. Check karein ki user exist karta hai ya nahi
@@ -30,67 +30,43 @@ export const sendSellerRequest = async (req, res) => {
 
     // 4. Model ke nested structure ke hisab se data update karein
     user.sellerRequest = "pending";
-    
+
     // Business Details Mapping
     user.businessDetails = {
       businessName: businessName,
       gstin: gstin || "",
       description: description,
-      studioImage: "/uploads/sellerSamples/" + req.file.filename
+      studioImage: "/uploads/sellerSamples/" + req.file.filename,
     };
 
     // Bank Details Mapping
     user.bankDetails = {
       accountNumber: accountNumber,
       ifscCode: ifscCode,
-      bankName: bankName
+      bankName: bankName,
     };
 
     // 5. Database mein save karein
     await user.save();
 
-    res.json({ 
+    res.json({
       msg: "Seller request submitted successfully! Admin will review your profile.",
-      status: "pending" 
+      status: "pending",
     });
-
   } catch (err) {
     console.error("Seller Request Error:", err);
-    res.status(500).json({ msg: "Server error occurred while processing request" });
+    res
+      .status(500)
+      .json({ msg: "Server error occurred while processing request" });
   }
 };
 
-
-// export const sendSellerRequest = async (req, res) => {
-//   try {
-//     const { userId } = req.body;
-
-//     const user = await User.findById(userId);
-//     if (!user) return res.status(404).json({ msg: "User not found" });
-
-//     if (!req.file) {
-//       return res.status(400).json({ msg: "Sample image is required" });
-//     }
-
-//     user.sellerRequest = "pending";
-//     user.sellerSampleImage = "/uploads/sellerSamples/" + req.file.filename;
-
-//     await user.save();
-
-//     res.json({ msg: "Seller request submitted successfully" });
-//   } catch (err) {
-//     console.log(err);
-//     res.status(500).json({ msg: "Server error" });
-//   }
-// };
-
-// geting seller details to display on product details page for buyer 
-
-
+// get seller details for buyer dashboard
 export const getSellerDetails = async (req, res) => {
   try {
-    const seller = await User.findById(req.params.id)
-      .select("name email sellerRequest");
+    const seller = await User.findById(req.params.id).select(
+      "name email sellerRequest",
+    );
 
     if (!seller) {
       return res.status(404).json({ msg: "Seller not found" });
@@ -103,7 +79,6 @@ export const getSellerDetails = async (req, res) => {
       city: null,
       bio: null,
     });
-
   } catch (err) {
     console.error("Seller Details Error:", err);
     res.status(500).json({ msg: "Server error" });
@@ -118,20 +93,18 @@ export const getStats = async (req, res) => {
     // NORMAL ORDERS
     const normalOrders = await Order.countDocuments({ seller: sellerId });
 
-
-    const totalOrders = normalOrders
+    const totalOrders = normalOrders;
     const totalProducts = await Product.countDocuments({ seller: sellerId });
-    const completedOrders = await Order.countDocuments({ 
-      seller: sellerId, 
-      orderStatus: "delivered" 
+    const completedOrders = await Order.countDocuments({
+      seller: sellerId,
+      orderStatus: "delivered",
     });
 
     res.json({
       totalProducts,
       totalOrders,
-      completedOrders
+      completedOrders,
     });
-
   } catch (err) {
     console.log("Stats Error ->", err);
     res.status(500).json({ msg: "Server error" });

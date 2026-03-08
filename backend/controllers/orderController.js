@@ -22,7 +22,9 @@ export const createOrder = async (req, res) => {
 
     // Stock check
     if (qty > product.stock) {
-      return res.status(400).json({ msg: `Only ${product.stock} units available` });
+      return res
+        .status(400)
+        .json({ msg: `Only ${product.stock} units available` });
     }
 
     const totalPrice = product.price * qty;
@@ -40,7 +42,7 @@ export const createOrder = async (req, res) => {
       billingAddress,
 
       orderStatus: "pending",
-      paymentStatus: "pending"
+      paymentStatus: "pending",
     });
 
     // Reduce stock
@@ -48,15 +50,11 @@ export const createOrder = async (req, res) => {
     await product.save();
 
     res.json({ msg: "Order created", order });
-
   } catch (err) {
     console.log(err);
     res.status(500).json({ msg: "Server error" });
   }
 };
-
-
-
 
 //GET ALL ORDERS OF BUYER
 
@@ -70,13 +68,11 @@ export const getBuyerOrders = async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.json(orders);
-
   } catch (err) {
     console.error("Buyer Orders Error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 };
-
 
 //GET ALL ORDERS OF SELLER
 
@@ -90,14 +86,11 @@ export const getSellerOrders = async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.json(orders);
-
   } catch (err) {
     console.log("Seller orders error:", err);
     res.status(500).json({ msg: "Error fetching seller orders" });
   }
 };
-
-
 
 //UPDATE ORDER STATUS (seller)
 
@@ -111,8 +104,7 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     const order = await Order.findById(orderId);
-    if (!order)
-      return res.status(404).json({ msg: "Order not found" });
+    if (!order) return res.status(404).json({ msg: "Order not found" });
 
     if (order.seller.toString() !== sellerId) {
       return res.status(403).json({ msg: "Not authorized" });
@@ -122,13 +114,11 @@ export const updateOrderStatus = async (req, res) => {
     await order.save();
 
     res.json({ msg: "Order status updated", order });
-
   } catch (err) {
     console.error("Update Order Error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 };
-
 
 // CANCEL ORDER (buyer)
 
@@ -137,12 +127,10 @@ export const cancelOrder = async (req, res) => {
     const userId = req.user.id;
     const { orderId } = req.body;
 
-    if (!orderId)
-      return res.status(400).json({ msg: "Order ID required" });
+    if (!orderId) return res.status(400).json({ msg: "Order ID required" });
 
     const order = await Order.findById(orderId);
-    if (!order)
-      return res.status(404).json({ msg: "Order not found" });
+    if (!order) return res.status(404).json({ msg: "Order not found" });
 
     // Allow buyer OR seller to cancel
     if (
@@ -161,10 +149,8 @@ export const cancelOrder = async (req, res) => {
     await order.save();
 
     res.json({ msg: "Order cancelled", order });
-
   } catch (err) {
     console.error("Cancel Order Error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 };
-
