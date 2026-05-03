@@ -15,6 +15,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import { globalSearch } from "./controllers/searchController.js";
+import { startProductImageCleanupJob } from "./utils/productImageCleanup.js";
 
 dotenv.config();
 
@@ -69,6 +70,8 @@ app.use("/payments", paymentRoutes);
 app.use("/uploads", express.static("uploads"));
 
 app.get("/search", globalSearch);
+
+startProductImageCleanupJob();
 
 // ================= SERVER START =================
 app.listen(PORT, () => console.log("Server running on " + PORT));

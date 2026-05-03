@@ -21,7 +21,7 @@ const SellerRequests = () => {
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-8 border-b border-gray-50 bg-gray-50/50">
-        <h3 className="text-xl font-black text-gray-900">New Artist Applications</h3>
+        <h3 className="text-3xl font-light text-slate-900">New Artist Applications</h3>
       </div>
       <table className="w-full">
         <thead className="bg-gray-50/50 text-[10px] font-bold text-gray-400 uppercase tracking-widest">

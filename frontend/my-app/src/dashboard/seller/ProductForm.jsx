@@ -1,29 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { MdClose, MdCloudUpload } from "react-icons/md";
-import api from "../../config/api";
+import { Leaf, MapPin, PackageCheck } from "lucide-react";
+import api, { getImageUrl } from "../../config/api";
 
-const ProductForm = ({ onClose, onProductAdded, product }) => {
-  const [inputs, setInputs] = useState({
-    title: "",
-    description: "",
-    price: "",
-    stock: 1,
-    category: "fashion",
-  });
-
-  const [imageFile, setImageFile] = useState(null);
-  const [preview, setPreview] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  // const CATEGORY_LIST = [
-  //   { label: "Paintings", value: "painting" },
-  //   { label: "Home Decor", value: "home-decor" },
-  //   { label: "Pottery", value: "pottery" },
-  //   { label: "Clay Art", value: "clay-art" },
-  //   { label: "Resin Art", value: "resin-art" }
-  // ];
-
-  const CATEGORY_LIST = [
+const CATEGORY_LIST = [
   { label: "Fashion & Apparel", value: "fashion" },
   { label: "Home & Kitchen", value: "home-kitchen" },
   { label: "Electronics", value: "electronics" },
@@ -31,24 +11,81 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
   { label: "Footwear", value: "footwear" },
 ];
 
+const INPUT_CLASS =
+  "w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-black";
+
+const defaultInputs = {
+  title: "",
+  description: "",
+  price: "",
+  stock: 1,
+  category: "fashion",
+  brand: "",
+  origin: "",
+  weight: "",
+  warranty: "",
+  materialType: "mixed",
+  packagingType: "standard",
+  carbonImpact: "medium",
+  city: "",
+  state: "",
+  pincode: "",
+};
+
+const ProductForm = ({ onClose, onProductAdded, product, isAdmin = false }) => {
+  const [inputs, setInputs] = useState(defaultInputs);
+  const [imageFiles, setImageFiles] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
-    if (product) {
-      setInputs({
-        title: product.title || "",
-        description: product.description || "",
-        price: product.price || "",
-        stock: product.stock || 1,
-        category: product.category || "fashion",
-      });
+    if (!product) {
+      setInputs(defaultInputs);
+      setExistingImages([]);
+      setImageFiles([]);
+      return;
     }
+
+    setInputs({
+      title: product.title || "",
+      description: product.description || "",
+      price: product.price || "",
+      stock: product.stock || 1,
+      category: product.category || "fashion",
+      brand: product.brand || "",
+      origin: product.origin || "",
+      weight: product.weight || "",
+      warranty: product.warranty || "",
+      materialType: product.ecoScore?.materialType || "mixed",
+      packagingType: product.ecoScore?.packagingType || "standard",
+      carbonImpact: product.ecoScore?.carbonImpact || "medium",
+      city: product.location?.city || "",
+      state: product.location?.state || "",
+      pincode: product.location?.pincode || "",
+    });
+    setExistingImages(product.images || []);
+    setImageFiles([]);
   }, [product]);
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      setPreview(URL.createObjectURL(file));
+  const previewImages = useMemo(() => {
+    if (imageFiles.length > 0) {
+      return imageFiles.map((file) => ({
+        key: file.name,
+        src: URL.createObjectURL(file),
+      }));
     }
+
+    return existingImages.map((src) => ({ key: src, src: getImageUrl(src) }));
+  }, [existingImages, imageFiles]);
+
+  const updateField = (key, value) => {
+    setInputs((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleImageChange = (e) => {
+    const files = Array.from(e.target.files || []).slice(0, 5);
+    if (files.length === 0) return;
+    setImageFiles(files);
   };
 
   const handleSubmit = async (e) => {
@@ -56,15 +93,12 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
     setLoading(true);
 
     const form = new FormData();
-    form.append("title", inputs.title);
-    form.append("description", inputs.description);
-    form.append("price", inputs.price);
-    form.append("stock", inputs.stock);
-    form.append("category", inputs.category);
+    Object.entries(inputs).forEach(([key, value]) => form.append(key, value));
+    form.append("existingImages", JSON.stringify(existingImages));
 
-    if (imageFile) {
-      form.append("image", imageFile);
-    }
+    imageFiles.forEach((file) => {
+      form.append("images", file);
+    });
 
     try {
       const config = {
@@ -72,12 +106,16 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
       };
 
       if (product) {
-        await api.put(`/products/update/${product._id}`, form, config);
-        alert("Product updated successfully!");
+        await api.put(
+          isAdmin ? `/admin/products/update/${product._id}` : `/products/update/${product._id}`,
+          form,
+          config,
+        );
+        alert(isAdmin ? "Product updated by admin successfully!" : "Product updated successfully!");
       } else {
-        if (!imageFile) {
+        if (imageFiles.length === 0) {
           setLoading(false);
-          return alert("Please upload a product image!");
+          return alert("Please upload between 1 and 5 product images.");
         }
         await api.post("/products/create", form, config);
         alert("Product added successfully!");
@@ -95,14 +133,13 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
 
   return (
     <div className="p-8 max-h-[90vh] overflow-y-auto">
-      {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-xl font-black text-gray-900 uppercase tracking-widest">
             {product ? "Edit Listing" : "New Listing"}
           </h2>
           <p className="text-xs text-gray-400 font-bold uppercase tracking-tighter mt-1">
-            Fill in the details for your artwork
+            {isAdmin ? "Admin override mode for product review and correction" : "Add product details, eco data, and location details"}
           </p>
         </div>
         <button onClick={onClose} className="text-gray-400 hover:text-black transition">
@@ -110,100 +147,154 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Title */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Artwork Title</label>
-          <input
-            required
-            type="text"
-            value={inputs.title}
-            placeholder="e.g. Starry Night Over the Sea"
-            className="w-full bg-gray-50 border border-gray-100 px-4 py-3 text-sm focus:bg-white focus:border-black outline-none transition-all rounded-sm"
-            onChange={(e) => setInputs({ ...inputs, title: e.target.value })}
-          />
-        </div>
-
-        {/* Description */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Description</label>
-          <textarea
-            required
-            rows="3"
-            value={inputs.description}
-            placeholder="Describe the medium, inspiration, and size..."
-            className="w-full bg-gray-50 border border-gray-100 px-4 py-3 text-sm focus:bg-white focus:border-black outline-none transition-all rounded-sm"
-            onChange={(e) => setInputs({ ...inputs, description: e.target.value })}
-          />
-        </div>
-
-        {/* Price & Stock Row */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Price (₹)</label>
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Product Title" required>
+            <input
+              required
+              type="text"
+              value={inputs.title}
+              className={INPUT_CLASS}
+              onChange={(e) => updateField("title", e.target.value)}
+            />
+          </Field>
+          <Field label="Category">
+            <select
+              className={INPUT_CLASS}
+              value={inputs.category}
+              onChange={(e) => updateField("category", e.target.value)}
+            >
+              {CATEGORY_LIST.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Description" required className="md:col-span-2">
+            <textarea
+              required
+              rows="4"
+              value={inputs.description}
+              className={INPUT_CLASS}
+              onChange={(e) => updateField("description", e.target.value)}
+            />
+          </Field>
+          <Field label="Price (₹)" required>
             <input
               required
               type="number"
+              min="0"
               value={inputs.price}
-              placeholder="0.00"
-              className="w-full bg-gray-50 border border-gray-100 px-4 py-3 text-sm focus:bg-white focus:border-black outline-none transition-all rounded-sm"
-              onChange={(e) => setInputs({ ...inputs, price: e.target.value })}
+              className={INPUT_CLASS}
+              onChange={(e) => updateField("price", e.target.value)}
             />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Stock</label>
+          </Field>
+          <Field label="Stock" required>
             <input
               required
               type="number"
+              min="0"
               value={inputs.stock}
-              placeholder="1"
-              className="w-full bg-gray-50 border border-gray-100 px-4 py-3 text-sm focus:bg-white focus:border-black outline-none transition-all rounded-sm"
-              onChange={(e) => setInputs({ ...inputs, stock: e.target.value })}
+              className={INPUT_CLASS}
+              onChange={(e) => updateField("stock", e.target.value)}
             />
+          </Field>
+        </section>
+
+        <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Field label="Brand">
+            <input value={inputs.brand} className={INPUT_CLASS} onChange={(e) => updateField("brand", e.target.value)} />
+          </Field>
+          <Field label="Origin">
+            <input value={inputs.origin} className={INPUT_CLASS} onChange={(e) => updateField("origin", e.target.value)} />
+          </Field>
+          <Field label="Weight">
+            <input value={inputs.weight} className={INPUT_CLASS} onChange={(e) => updateField("weight", e.target.value)} />
+          </Field>
+          <Field label="Warranty">
+            <input value={inputs.warranty} className={INPUT_CLASS} onChange={(e) => updateField("warranty", e.target.value)} />
+          </Field>
+        </section>
+
+        <section className="rounded-3xl border border-emerald-100 bg-emerald-50/60 p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <Leaf className="w-5 h-5 text-emerald-700" />
+            <h3 className="text-sm font-black uppercase tracking-widest text-emerald-900">Eco Score Inputs</h3>
           </div>
-        </div>
-
-        {/* Category */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Category</label>
-          <select
-            className="w-full bg-gray-50 border border-gray-100 px-4 py-3 text-sm focus:bg-white focus:border-black outline-none transition-all rounded-sm appearance-none cursor-pointer"
-            value={inputs.category}
-            onChange={(e) => setInputs({ ...inputs, category: e.target.value })}
-          >
-            {CATEGORY_LIST.map((cat) => (
-              <option key={cat.value} value={cat.value}>
-                {cat.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Image Upload */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Product Image</label>
-          <div className="relative group border-2 border-dashed border-gray-100 bg-gray-50 p-4 text-center hover:bg-gray-100 transition rounded-sm">
-            <label className="cursor-pointer block">
-              {preview ? (
-                <div className="relative">
-                  <img src={preview} alt="Preview" className="h-32 mx-auto object-contain rounded-sm shadow-sm" />
-                  <p className="text-[10px] font-bold text-black mt-2 underline">Change Image</p>
-                </div>
-              ) : (
-                <div className="py-4">
-                  <MdCloudUpload size={30} className="mx-auto text-gray-300 mb-2" />
-                  <p className="text-xs font-bold text-gray-500 uppercase">Click to upload photo</p>
-                </div>
-              )}
-              <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
-            </label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Field label="Material">
+              <select className={INPUT_CLASS} value={inputs.materialType} onChange={(e) => updateField("materialType", e.target.value)}>
+                <option value="plastic">Plastic-heavy</option>
+                <option value="mixed">Mixed</option>
+                <option value="natural">Natural</option>
+                <option value="recycled">Recycled</option>
+              </select>
+            </Field>
+            <Field label="Packaging">
+              <select className={INPUT_CLASS} value={inputs.packagingType} onChange={(e) => updateField("packagingType", e.target.value)}>
+                <option value="plastic">Plastic</option>
+                <option value="standard">Standard</option>
+                <option value="eco">Eco</option>
+              </select>
+            </Field>
+            <Field label="Carbon Impact">
+              <select className={INPUT_CLASS} value={inputs.carbonImpact} onChange={(e) => updateField("carbonImpact", e.target.value)}>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </Field>
           </div>
-        </div>
+        </section>
 
-        {/* Action Button */}
+        <section className="rounded-3xl border border-sky-100 bg-sky-50/60 p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <MapPin className="w-5 h-5 text-sky-700" />
+            <h3 className="text-sm font-black uppercase tracking-widest text-sky-900">Product Location & Delivery</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="City" required>
+              <input required value={inputs.city} className={INPUT_CLASS} onChange={(e) => updateField("city", e.target.value)} />
+            </Field>
+            <Field label="State" required>
+              <input required value={inputs.state} className={INPUT_CLASS} onChange={(e) => updateField("state", e.target.value)} />
+            </Field>
+            <Field label="Pincode" required>
+              <input required value={inputs.pincode} className={INPUT_CLASS} onChange={(e) => updateField("pincode", e.target.value)} />
+            </Field>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-amber-100 bg-amber-50/60 p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <PackageCheck className="w-5 h-5 text-amber-700" />
+            <h3 className="text-sm font-black uppercase tracking-widest text-amber-900">Product Images</h3>
+          </div>
+          <label className="block border-2 border-dashed border-amber-200 rounded-3xl p-5 text-center cursor-pointer hover:bg-white/70 transition">
+            <MdCloudUpload size={28} className="mx-auto text-amber-500 mb-2" />
+            <p className="text-sm font-semibold text-gray-700">Upload up to 5 images</p>
+            <p className="text-xs text-gray-500 mt-1">The first image becomes the thumbnail on buyer cards</p>
+            <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageChange} />
+          </label>
+
+          {previewImages.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-5">
+              {previewImages.map((image, index) => (
+                <div key={image.key} className="space-y-2">
+                  <img src={image.src} alt={`Preview ${index + 1}`} className="h-28 w-full object-cover rounded-2xl border border-white shadow-sm" />
+                  <p className="text-[11px] text-center font-bold uppercase tracking-widest text-gray-500">
+                    {index === 0 ? "Thumbnail" : `Image ${index + 1}`}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         <button
           disabled={loading}
-          className={`w-full py-4 rounded-sm font-black text-xs uppercase tracking-[0.2em] transition duration-300 shadow-xl ${
+          className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition duration-300 shadow-xl ${
             loading ? "bg-gray-200 text-gray-400" : "bg-black text-white hover:bg-gray-800"
           }`}
         >
@@ -213,5 +304,14 @@ const ProductForm = ({ onClose, onProductAdded, product }) => {
     </div>
   );
 };
+
+const Field = ({ label, children, required, className = "" }) => (
+  <label className={`space-y-1 ${className}`}>
+    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+      {label} {required ? "*" : ""}
+    </span>
+    {children}
+  </label>
+);
 
 export default ProductForm;

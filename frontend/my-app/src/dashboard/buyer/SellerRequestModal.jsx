@@ -48,8 +48,10 @@ const SellerRequestModal = ({ isOpen, onClose, user, onSuccess }) => {
 });
       
       alert(res.data.msg || "Request submitted! Waiting for Admin approval.");
+      const updatedUser = { ...user, sellerRequest: "pending" };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
       onClose();
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(updatedUser);
     } catch (err) {
       alert(err.response?.data?.msg || "Something went wrong");
     } finally {

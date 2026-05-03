@@ -31,6 +31,53 @@ const userSchema = new mongoose.Schema({
     default: "buyer" 
   },
 
+  status: {
+    type: String,
+    enum: ["active", "suspended", "deleted"],
+    default: "active",
+  },
+
+  suspendedAt: {
+    type: Date,
+    default: null,
+  },
+
+  deletedAt: {
+    type: Date,
+    default: null,
+  },
+
+  suspensionReason: {
+    type: String,
+    default: "",
+  },
+
+  deletionRequest: {
+    type: Boolean,
+    default: false,
+  },
+
+  deletionStatus: {
+    type: String,
+    enum: ["none", "pending", "approved", "rejected"],
+    default: "none",
+  },
+
+  deletionRequestedAt: {
+    type: Date,
+    default: null,
+  },
+
+  deletionReviewedAt: {
+    type: Date,
+    default: null,
+  },
+
+  deletionReason: {
+    type: String,
+    default: "",
+  },
+
   // Verification & Auth
   otp: String,
   verified: { type: Boolean, default: false },
@@ -60,6 +107,12 @@ const userSchema = new mongoose.Schema({
   // Stats (Optional: Trust build karne ke liye)
   sellerRating: { type: Number, default: 0 },
   totalSales: { type: Number, default: 0 },
+  location: {
+    city: { type: String, default: "" },
+    state: { type: String, default: "" },
+    country: { type: String, default: "India" },
+    pincode: { type: String, default: "" },
+  },
 
 }, { timestamps: true });
 

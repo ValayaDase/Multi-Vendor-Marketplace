@@ -1,346 +1,253 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import axios from "axios";
+import { Leaf, MapPin, ShieldCheck, Truck } from "lucide-react";
 import { AiOutlineHeart, AiFillStar } from "react-icons/ai";
-import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
-import api, {getImageUrl} from "../../config/api";
+import { useNavigate, useParams } from "react-router-dom";
+import api, { getImageUrl } from "../../config/api";
+import {
+  ecoBadgeClasses,
+  formatCategory,
+  formatCurrency,
+  formatProductLocation,
+  getEcoLabel,
+} from "../../utils/marketplace";
 
 export default function ProductDetails() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [seller, setSeller] = useState(null);
   const [inCart, setInCart] = useState(false);
-  const navigate = useNavigate();
+  const [activeImage, setActiveImage] = useState(0);
 
   const buyNow = () => {
+    if (!isAvailable) return;
+
     localStorage.setItem(
       "checkoutItem",
       JSON.stringify({
         mode: "single",
         productId: product._id,
-        sellerId: product.seller,
+        sellerId: product.seller?._id || product.seller,
         price: product.price,
-        quantity: 1
-      })
+        quantity: 1,
+        title: product.title,
+        image: product.thumbnail || product.images?.[0],
+      }),
     );
 
     navigate("/buyer/checkout");
   };
 
-
   const checkCart = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
+    if (!localStorage.getItem("token")) return;
     const res = await api.get("/cart");
-
-    const exists = res.data.some((item) => item.product._id === id);
-    setInCart(exists);
+    setInCart(res.data.some((item) => item.product._id === id));
   };
 
   useEffect(() => {
-  const fetchProductAndSeller = async () => {
-    try {
-      // 1. Pehle product fetch karein
-      const productRes = await api.get(`/products/${id}`);
-      const productData = productRes.data;
-      setProduct(productData);
-
-      // 2. Ab check karein ki sellerId valid hai ya nahi
-      if (productData.seller) {
-        const sellerRes = await api.get(`/seller/${productData.seller}`);
-        setSeller(sellerRes.data);
+    const fetchProductAndSeller = async () => {
+      try {
+        const productRes = await api.get(`/products/${id}`);
+        setProduct(productRes.data);
+        setSeller(productRes.data.seller || null);
+        await checkCart();
+      } catch (err) {
+        console.error("Error fetching data:", err);
       }
+    };
 
-      // 3. Cart check karein
-      await checkCart();
-      
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      // Agar error aaye toh user ko batayein ya state handle karein
-    }
-  };
+    if (id) fetchProductAndSeller();
+  }, [id]);
 
-  if (id) {
-    fetchProductAndSeller();
-  }
-}, [id]);
-
-  // Function to save product
   const saveProduct = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return alert("Please login");
-
-    const res = await api.post("/products/save",{ productId: id },);
+    if (!localStorage.getItem("token")) return alert("Please login");
+    const res = await api.post("/products/save", { productId: id });
     alert(res.data.msg);
   };
 
   const addToCart = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return alert("Please login");
-
-    const res = await api.post("/cart/add",{ productId: id });
-
+    if (!isAvailable) return alert("This product is no longer available to buy.");
+    if (!localStorage.getItem("token")) return alert("Please login");
+    const res = await api.post("/cart/add", { productId: id });
     alert(res.data.msg);
     window.dispatchEvent(new Event("cartUpdated"));
   };
 
-  if (!product)
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-600 text-lg">Loading artwork...</p>
-        </div>
-      </div>
-    );
+  if (!product) {
+    return <div className="rounded-[2rem] bg-white p-10 shadow-sm">Loading product...</div>;
+  }
+
+  const gallery = product.images?.length ? product.images : [product.thumbnail];
+  const heroImage = gallery[activeImage] || gallery[0];
+  const ecoClass = ecoBadgeClasses[product.ecoScore?.badgeColor || "yellow"];
+  const isAvailable = product.status === "approved" && product.stock > 0 && seller?.role === "seller";
 
   return (
-    <div className="min-h-screen bg-linear-to-b from-slate-50 via-white to-slate-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate(-1)}
-          className="group inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-full mb-6 transition-all hover:shadow-md"
-        >
-          <svg
-            className="w-4 h-4 group-hover:-translate-x-1 transition-transform"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-          Back
-        </button>
+    <div className="space-y-6">
+      <button
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700"
+      >
+        Back
+      </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {/* LEFT - IMAGE SECTION */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-200">
-              <div className="relative">
-                <img
-                  src={getImageUrl(product.images[0])}
-                  alt={product.title}
-                  className="w-full h-[550px] object-cover"
-                />
-
-                {/* Free Delivery Badge */}
-                <div className="absolute top-4 left-4">
-                  <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-500 text-white text-sm font-semibold rounded-full shadow-lg">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    Free Delivery
-                  </span>
-                </div>
+      <div className="grid gap-8 lg:grid-cols-[1fr_0.95fr]">
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+            <div className="relative">
+              <img src={getImageUrl(heroImage)} alt={product.title} className="h-[520px] w-full object-cover" />
+              <div className={`absolute left-5 top-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.25em] ${ecoClass}`}>
+                <Leaf className="h-4 w-4" />
+                Eco {product.ecoScore?.score || 0}
               </div>
-
-              {/* Save Button */}
-              <div className="p-4 flex justify-center border-t border-slate-100">
+            </div>
+            <div className="grid grid-cols-5 gap-3 p-4">
+              {gallery.slice(0, 5).map((image, index) => (
                 <button
-                  onClick={saveProduct}
-                  className="group inline-flex items-center gap-2 px-6 py-2.5 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all"
+                  key={image}
+                  onClick={() => setActiveImage(index)}
+                  className={`overflow-hidden rounded-2xl border ${activeImage === index ? "border-slate-900" : "border-slate-200"}`}
                 >
-                  <AiOutlineHeart
-                    size={20}
-                    className="group-hover:text-red-500 transition-colors"
-                  />
-                  <span className="font-medium">Save for Later</span>
+                  <img src={getImageUrl(image)} alt={`${product.title} ${index + 1}`} className="h-20 w-full object-cover" />
                 </button>
-              </div>
+              ))}
             </div>
           </div>
 
-          {/* RIGHT - INFO SECTION */}
-          <div className="space-y-6">
-            {/* Title & Price */}
-            <div>
-              <h1 className="text-4xl font-light text-slate-900 mb-3">
-                {product.title}
-              </h1>
-
-              <div className="flex items-baseline gap-3">
-                <p className="text-4xl font-bold text-slate-900">
-                  ₹{product.price.toLocaleString("en-IN")}
-                </p>
-                <span className="text-slate-500 text-base">
-                  inclusive of all taxes
-                </span>
-              </div>
-
-              {/* Rating */}
-              <div className="mt-4 flex items-center gap-3">
-                <div className="inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-semibold">
-                  <AiFillStar size={16} />
-                  <span>4.3</span>
-                </div>
-                <p className="text-slate-600 text-sm">
-                  1,220 Ratings • 350 Reviews
-                </p>
-              </div>
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-emerald-600" />
+              <h3 className="text-lg font-semibold text-slate-900">Eco & Essential Information</h3>
             </div>
-
-            {/* Seller Information */}
-            {seller && (
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="w-1.5 h-6 rounded-full bg-amber-500" />
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    Seller Information
-                  </h3>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-600 text-sm">Seller Name:</span>
-                    <span className="font-medium text-slate-900">
-                      {seller.name}
-                    </span>
-                  </div>
-
-                  
-                </div>
-              </div>
-            )}
-
-            {/* Size Selection */}
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-3">
-                Select Size
-              </h3>
-              <button className="px-6 py-2.5 border-2 border-slate-900 text-slate-900 rounded-full hover:bg-slate-900 hover:text-white transition-all font-medium">
-                Free Size
-              </button>
-            </div>
-
-            {/* Product Highlights */}
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-3">
-                Product Highlights
-              </h3>
-
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-                      Category
-                    </p>
-                    <p className="font-semibold text-slate-900">
-                      {product.category}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-                      Stock Available
-                    </p>
-                    <p className="font-semibold text-slate-900">
-                      {product.stock} units
-                    </p>
-                  </div>
-
-                  <div className="col-span-2">
-                    <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">
-                      Description
-                    </p>
-                    <p className="text-slate-700 leading-relaxed">
-                      {product.description}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="sticky bottom-0 bg-white border-t border-slate-200 rounded-2xl p-6 shadow-lg">
-              <div className="flex gap-4">
-                {inCart ? (
-                  <button
-                    onClick={() => navigate("/buyer/cart")}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-xl text-base font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                    View Cart
-                  </button>
-                ) : (
-                  <button
-                    onClick={async () => {
-                      await addToCart();
-                      setInCart(true); //  Update UI instantly
-                    }}
-                    className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-xl text-base font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                      />
-                    </svg>
-                    Add to Cart
-                  </button>
-                )}
-
-                <button onClick={buyNow} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-4 rounded-xl text-base font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
-                  Buy Now
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              <p className="text-xs text-slate-500 text-center mt-4">
-                🔒 Secure checkout • Easy returns within 7 days
-              </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Info label="Eco label" value={getEcoLabel(product.ecoScore?.score)} />
+              <Info label="Category" value={formatCategory(product.category)} />
+              <Info label="Brand" value={product.brand || "-"} />
+              <Info label="Origin" value={product.origin || "-"} />
+              <Info label="Weight" value={product.weight || "-"} />
+              <Info label="Warranty" value={product.warranty || "-"} />
+              <Info label="Material" value={product.ecoScore?.materialType || "-"} />
+              <Info label="Packaging" value={product.ecoScore?.packagingType || "-"} />
             </div>
           </div>
         </div>
+
+        <div className="space-y-6">
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">{formatCategory(product.category)}</p>
+            <h1 className="mt-2 text-4xl font-light text-slate-900">{product.title}</h1>
+            <div className="mt-4 flex items-center gap-3">
+              <p className="text-4xl font-black text-slate-900">{formatCurrency(product.price)}</p>
+                <div className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white">
+                  <AiFillStar size={16} />
+                  {seller?.sellerRating || seller?.rating || 4.4}
+                </div>
+            </div>
+            <p className="mt-4 text-base leading-7 text-slate-600">{product.description}</p>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <span className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.25em] ${ecoClass}`}>
+                {getEcoLabel(product.ecoScore?.score)}
+              </span>
+              {formatProductLocation(product.location) && (
+                <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-sky-700">
+                  <MapPin className="h-4 w-4" />
+                  {formatProductLocation(product.location)}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">
+                <Truck className="h-4 w-4" />
+                Stock {product.stock}
+              </span>
+              {!isAvailable && (
+                <span className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-rose-700">
+                  Currently unavailable
+                </span>
+              )}
+            </div>
+          </div>
+
+          {seller && (
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-slate-900">Seller Information</h3>
+              <div className="mt-4 grid gap-3 text-sm text-slate-600">
+                <Info label="Seller Name" value={seller.name} />
+                <Info label="Business" value={seller.businessName || seller.businessDetails?.businessName || "Verified marketplace seller"} />
+                <Info label="Location" value={formatProductLocation(seller.location || seller)} />
+                <Info label="Rating" value={seller.sellerRating || seller.rating || 4.4} />
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-slate-900">Delivery Coverage</h3>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {(product.deliveryAreas || []).length > 0 ? (
+                product.deliveryAreas.map((area) => (
+                  <span key={area} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                    {area}
+                  </span>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500">Seller has not added delivery area details yet.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="sticky bottom-4 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl">
+            {!isAvailable && (
+              <div className="mb-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                This product cannot be purchased anymore because it is out of stock or the seller is no longer active.
+              </div>
+            )}
+            <div className="flex gap-3">
+              {inCart ? (
+                <button
+                  onClick={() => navigate("/buyer/cart")}
+                  disabled={!isAvailable}
+                  className="flex-1 rounded-2xl bg-emerald-600 px-5 py-4 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  View Cart
+                </button>
+              ) : (
+                <button
+                  onClick={async () => {
+                    await addToCart();
+                    setInCart(true);
+                  }}
+                  disabled={!isAvailable}
+                  className="flex-1 rounded-2xl bg-slate-900 px-5 py-4 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Add to Cart
+                </button>
+              )}
+              <button
+                onClick={buyNow}
+                disabled={!isAvailable}
+                className="flex-1 rounded-2xl bg-amber-500 px-5 py-4 text-base font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Buy Now
+              </button>
+            </div>
+            <button
+              onClick={saveProduct}
+              className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-rose-600"
+            >
+              <AiOutlineHeart size={18} />
+              Save for later
+            </button>
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function Info({ label, value }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 px-4 py-3">
+      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-900">{value || "-"}</p>
     </div>
   );
 }

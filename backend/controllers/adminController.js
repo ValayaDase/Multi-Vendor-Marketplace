@@ -1,14 +1,47 @@
-import User from "../models/User.js";
-import Order from "../models/Order.js";
-// import CustomOrder from "../models/CustomOrder.js";
-import Payment from "../models/Payment.js";
-import Product from "../models/Product.js";
-// import Studio from "../models/Studio.js";
 import fs from "fs";
 import path from "path";
+import Order from "../models/Order.js";
+import Payment from "../models/Payment.js";
+import Product from "../models/Product.js";
+import User from "../models/User.js";
+import { sendEmail } from "../utils/sendEmail.js";
 
+const REVENUE_ORDER_STATUSES = ["confirmed", "processing", "shipped", "delivered"];
+const ACTIVE_SELLER_ORDER_STATUSES = ["pending", "confirmed", "processing"];
+const ACTIVE_USER_FILTER = [{ status: "active" }, { status: { $exists: false } }, { status: null }];
+const SELLER_DELETION_BLOCKING_STATUSES = ["pending", "confirmed", "processing", "shipped"];
 
-// get request from users to become sellers
+const deactivateSellerCatalog = async (sellerId, adminRemark) => {
+  await Product.updateMany(
+    { seller: sellerId },
+    {
+      $set: {
+        stock: 0,
+        status: "inactive",
+        isDeleted: true,
+        deletedBy: "admin",
+        deletedAt: new Date(),
+        adminRemark,
+      },
+    },
+  );
+};
+
+const deleteLocalFile = async (fileUrl) => {
+  if (!fileUrl) return;
+
+  const imgPath = fileUrl.startsWith("/") ? fileUrl.slice(1) : fileUrl;
+  const filePath = path.join(process.cwd(), imgPath);
+
+  try {
+    if (fs.existsSync(filePath)) {
+      await fs.promises.unlink(filePath);
+    }
+  } catch (err) {
+    console.log("Failed to delete image file:", err.message);
+  }
+};
+
 export const getSellerRequests = async (req, res) => {
   try {
     const requests = await User.find({ sellerRequest: "pending" });
@@ -18,8 +51,40 @@ export const getSellerRequests = async (req, res) => {
   }
 };
 
+export const getSellerDeletionRequests = async (req, res) => {
+  try {
+    const requests = await User.find({ deletionStatus: "pending" }).sort({ deletionRequestedAt: -1 });
 
-// APPROVE SELLER
+    const enriched = await Promise.all(
+      requests.map(async (seller) => {
+        const [totalOrders, activeOrders, totalRevenue, productCount] = await Promise.all([
+          Order.countDocuments({ seller: seller._id }),
+          Order.countDocuments({ seller: seller._id, orderStatus: { $in: SELLER_DELETION_BLOCKING_STATUSES } }),
+          Order.aggregate([
+            { $match: { seller: seller._id, orderStatus: { $in: REVENUE_ORDER_STATUSES } } },
+            { $group: { _id: null, total: { $sum: "$price" } } },
+          ]),
+          Product.countDocuments({ seller: seller._id, $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] }),
+        ]);
+
+        return {
+          ...seller.toObject(),
+          totalOrders,
+          activeOrders,
+          revenue: totalRevenue[0]?.total || 0,
+          productCount,
+          pendingDisputes: 0,
+        };
+      }),
+    );
+
+    res.json(enriched);
+  } catch (err) {
+    console.error("Get seller deletion requests error:", err);
+    res.status(500).json({ msg: "Failed to fetch seller deletion requests" });
+  }
+};
+
 export const approveSeller = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -28,7 +93,11 @@ export const approveSeller = async (req, res) => {
     if (!user) return res.status(404).json({ msg: "User not found" });
 
     user.role = "seller";
+    user.status = "active";
     user.sellerRequest = "approved";
+    user.suspendedAt = null;
+    user.deletedAt = null;
+    user.suspensionReason = "";
 
     await user.save();
 
@@ -38,248 +107,248 @@ export const approveSeller = async (req, res) => {
   }
 };
 
-
-// REJECT SELLER
-
-
 export const rejectSeller = async (req, res) => {
   try {
     const user = await User.findById(req.body.userId);
-    
-    // 1. Image delete (Wahi ek line wala logic)
-    const imgPath = user.businessDetails?.studioImage;
-    if (imgPath) {
-      fs.unlinkSync(path.join(process.cwd(), imgPath)); 
-    }
+    if (!user) return res.status(404).json({ msg: "User not found" });
 
-    // 2. Data Clean (Sirf 3 lines)
-    user.businessDetails = {}; // Sab saaf
-    user.bankDetails = {};     // Sab saaf
+    await deleteLocalFile(user.businessDetails?.studioImage);
+
+    user.businessDetails = {};
+    user.bankDetails = {};
     user.sellerRequest = "rejected";
 
     await user.save();
     res.json({ msg: "User seller request rejected and cleaned!" });
   } catch (err) {
-    res.status(500).json({ msg: "Error rejecting seller request: " + err.message });
+    res.status(500).json({ msg: `Error rejecting seller request: ${err.message}` });
   }
 };
-
-// export const rejectSeller = async (req, res) => {
-//   try {
-//     const { userId } = req.body;
-
-//     const user = await User.findById(userId);
-//     if (!user) return res.status(404).json({ msg: "User not found" });
-
-//     //  Delete sample image if exists
-//     if (user.sellerSampleImage) {
-//       const imgPath = user.sellerSampleImage.startsWith("/")
-//         ? user.sellerSampleImage. slice(1)
-//         : user.sellerSampleImage;
-//       const filePath = path.join(process.cwd(), imgPath);
-
-//       try {
-//         await fs.promises.unlink(filePath);
-//         console.log(" Sample image deleted:", filePath);
-//       } catch (err) {
-//         console.log(" Failed to delete sample image(server side):", err.message);
-//       }
-//     }
-
-//     //  Update user status
-//     user.sellerRequest = "rejected";
-//     user.sellerSampleImage = null;  // Clear the image path
-
-//     await user.save();
-
-//     res.json({ msg: "Seller Request Rejected" });
-//   } catch (error) {
-//     console.error("Reject Seller Error:", error);
-//     res.status(500).json({ msg: "Server error", error: error.message });
-//   }
-// };
-
-
-// REMOVE SELLER
-// export const removeSeller = async (req, res) => {
-//   try {
-//     const sellerId = req.params.id;
-    
-//     const user = await User.findById(sellerId);
-//     if (!user) return res.status(404).json({ msg: "User not found" });
-
-//     const products = await Product.find({ seller: sellerId });
-//     const normalOrders = await Order.find({ seller: sellerId });
-
-//     console.log(`Removing seller: ${sellerId}`);
-
-//     //  Delete ONLY sample image (not needed anymore)
-//     if (user.sellerSampleImage) {
-//       const imgPath = user.sellerSampleImage.startsWith("/")
-//         ? user.sellerSampleImage. slice(1)
-//         : user.sellerSampleImage;
-//       const filePath = path.join(process.cwd(), imgPath);
-
-//       try {
-//         await fs.promises.unlink(filePath);
-//         console.log(" Sample image deleted:", filePath);
-//       } catch (err) {
-//         console.log(" Failed to delete sample image:", err.message);
-//       }
-//     }
-//     //KEEP product images but mark products as unavailable
-//     await Product.updateMany(
-//       { seller: sellerId },
-//       { 
-//         $set: { 
-//           stock: 0,
-//           available: false  // Add this field to your Product model if needed
-//         } 
-//       }
-//     );
-//     console.log(" Products marked as unavailable (images preserved for order history)");
-
-//     //  Update normal orders status (KEEP orders and images for buyer history)
-//     await Order.updateMany(
-//       { seller: sellerId },
-//       { 
-//         $set: { 
-//           orderStatus: "seller_removed"
-//         } 
-//       }
-//     );
-//     console.log(` ${normalOrders.length} normal orders marked as 'seller_removed' (preserved for buyers)`);
-
-//     // Update custom orders status (KEEP orders and images)
-//     await CustomOrder.updateMany(
-//       { seller: sellerId },
-//       { 
-//         $set: { 
-//           status: "seller_removed"
-//         } 
-//       }
-//     );
-//     console.log(` ${customOrders.length} custom orders marked as 'seller_removed' (preserved for buyers)`);
-
-//     //  KEEP payments (needed for transaction history and refunds)
-//     console.log(" Payments preserved for transaction history");
-
-//     //  Downgrade user to buyer
-//     await User.findByIdAndUpdate(sellerId, { 
-//       role: "buyer",
-//       sellerRequest: "none",
-//       sellerSampleImage:  null
-//     });
-//     console.log(" User downgraded to buyer");
-
-//     res.json({ 
-//       msg: "Seller removed successfully. User downgraded to buyer.  All orders and product images preserved for buyer history.  Studio and promotional content deleted.",
-//       stats: {
-//         ordersPreserved: normalOrders.length,
-//         customOrdersPreserved: customOrders.length,
-//         productsDisabled: products.length
-//       }
-//     });
-
-//   } catch (err) {
-//     console.error("=== REMOVE SELLER ERROR ===");
-//     console.error("Error:", err);
-//     console.error("Stack:", err.stack);
-//     res.status(500).json({ 
-//       msg: "Failed to remove seller", 
-//       error: err.message 
-//     });
-//   }
-// };
-
 
 export const removeSeller = async (req, res) => {
   try {
     const sellerId = req.params.id;
-
-    // 1. Check if user exists
+    const reason = (req.body?.reason || "").trim();
     const user = await User.findById(sellerId);
     if (!user) return res.status(404).json({ msg: "User not found" });
 
-    console.log(`Removing seller: ${sellerId}`);
-
-    // 2. Studio Image delete karna (uploads/sellerSamples folder se)
-    // Aapke naye model mein path yahan hai: businessDetails.studioImage
-    const imgUrl = user.businessDetails?.studioImage;
-
-    if (imgUrl) {
-      const imgPath = imgUrl.startsWith("/") ? imgUrl.slice(1) : imgUrl;
-      const filePath = path.join(process.cwd(), imgPath);
-
-      try {
-        if (fs.existsSync(filePath)) {
-          await fs.promises.unlink(filePath);
-          console.log("Studio image deleted:", filePath);
-        }
-      } catch (err) {
-        console.log("Failed to delete image file:", err.message);
-      }
-    }
-
-    // 3. Products ko "Out of Stock" mark karna
-    // Taaki buyer purane orders mein product dekh sake par naya kharid na sake
     const products = await Product.find({ seller: sellerId });
-    await Product.updateMany(
-      { seller: sellerId },
-      { $set: { stock: 0 } } 
-    );
-    console.log(`${products.length} products marked out of stock`);
+    await deactivateSellerCatalog(sellerId, "Seller account deleted by admin");
 
-    // 4. Orders ka status update karna
+    const activeOrders = await Order.find({
+      seller: sellerId,
+      orderStatus: { $in: ACTIVE_SELLER_ORDER_STATUSES },
+    });
+
+    await Promise.all(
+      activeOrders.map(async (order) => {
+        order.orderStatus = "seller_deleted";
+
+        if (order.paymentStatus === "paid" && order.paymentRef) {
+          order.paymentStatus = "refunded";
+          await Payment.findByIdAndUpdate(order.paymentRef, { paymentStatus: "refunded" });
+        }
+
+        await order.save();
+      }),
+    );
+
     const orders = await Order.find({ seller: sellerId });
-    await Order.updateMany(
-      { seller: sellerId },
-      { $set: { orderStatus: "seller_deleted" } }
-    );
-    console.log(`${orders.length} orders updated to 'seller_deleted'`);
 
-    // 5. User ko Downgrade karna aur data saaf karna
-    // Role ko 'buyer' kiya aur business/bank details ko khali kar diya
     await User.findByIdAndUpdate(sellerId, {
       role: "buyer",
-      sellerRequest: "none",
-      businessDetails: {}, // Ek line mein saara business data saaf
-      bankDetails: {}      // Ek line mein saara bank data saaf
+      status: "deleted",
+      deletedAt: new Date(),
+      suspensionReason: reason,
     });
+
+    if (user.email) {
+      await sendEmail(
+        user.email,
+        "Your Seller Account Has Been Removed",
+        `<p>Hello ${user.name || "Seller"},</p><p>Your seller account has been removed by the admin.</p><p>${reason ? `Reason: ${reason}</p>` : ""}<p>Your products have been hidden from buyers. Previous order history is still preserved for platform records.</p>`,
+      );
+    }
 
     res.json({
-      msg: "Seller removed successfully. Role changed to buyer.",
+      msg: "Seller deleted successfully. Products were hidden and account was downgraded to buyer.",
       stats: {
         productsAffected: products.length,
-        ordersAffected: orders.length
-      }
+        ordersAffected: orders.length,
+      },
     });
-
   } catch (err) {
     console.error("REMOVE SELLER ERROR:", err.message);
     res.status(500).json({ msg: "Failed to remove seller" });
   }
 };
 
+export const suspendSeller = async (req, res) => {
+  try {
+    const sellerId = req.params.id;
+    const reason = (req.body?.reason || "").trim();
+    const user = await User.findById(sellerId);
+    if (!user) return res.status(404).json({ msg: "User not found" });
 
+    await deactivateSellerCatalog(sellerId, "Seller suspended by admin");
 
-// GET ALL APPROVED SELLERS
+    user.role = "buyer";
+    user.status = "suspended";
+    user.suspendedAt = new Date();
+    user.suspensionReason = reason;
+    await user.save();
+
+    if (user.email) {
+      await sendEmail(
+        user.email,
+        "Your Seller Account Has Been Suspended",
+        `<p>Hello ${user.name || "Seller"},</p><p>Your seller account has been suspended.</p><p>${reason ? `Reason: ${reason}</p>` : ""}<p>You can still log in and use the platform as a buyer, but seller access and product management have been disabled.</p>`,
+      );
+    }
+
+    res.json({ msg: "Seller suspended successfully." });
+  } catch (err) {
+    console.error("Suspend seller error:", err);
+    res.status(500).json({ msg: "Failed to suspend seller" });
+  }
+};
+
+export const approveSellerDeletionRequest = async (req, res) => {
+  try {
+    const sellerId = req.params.id;
+    const user = await User.findById(sellerId);
+    if (!user) return res.status(404).json({ msg: "User not found" });
+
+    const blockingOrders = await Order.countDocuments({
+      seller: sellerId,
+      orderStatus: { $in: SELLER_DELETION_BLOCKING_STATUSES },
+    });
+
+    if (blockingOrders > 0) {
+      user.deletionRequest = false;
+      user.deletionStatus = "rejected";
+      user.deletionReviewedAt = new Date();
+      user.deletionReason = "Active orders exist";
+      await user.save();
+
+      return res.status(400).json({ msg: "Deletion request cannot be approved because active orders still exist." });
+    }
+
+    await deactivateSellerCatalog(sellerId, "Seller deletion request approved by admin");
+
+    user.role = "buyer";
+    user.status = "deleted";
+    user.deletedAt = new Date();
+    user.deletionRequest = false;
+    user.deletionStatus = "approved";
+    user.deletionReviewedAt = new Date();
+    user.deletionReason = "";
+    await user.save();
+
+    if (user.email) {
+      await sendEmail(
+        user.email,
+        "Your Seller Account Deletion Request Has Been Approved",
+        `<p>Hello ${user.name || "Seller"},</p><p>Your seller account deletion request has been approved by the admin.</p><p>Your products have been hidden and your account has been downgraded to buyer access.</p>`,
+      );
+    }
+
+    res.json({ msg: "Seller deletion request approved successfully." });
+  } catch (err) {
+    console.error("Approve seller deletion request error:", err);
+    res.status(500).json({ msg: "Failed to approve seller deletion request" });
+  }
+};
+
+export const rejectSellerDeletionRequest = async (req, res) => {
+  try {
+    const sellerId = req.params.id;
+    const reason = (req.body?.reason || "").trim() || "Pending orders";
+    const user = await User.findById(sellerId);
+    if (!user) return res.status(404).json({ msg: "User not found" });
+
+    user.deletionRequest = false;
+    user.deletionStatus = "rejected";
+    user.deletionReviewedAt = new Date();
+    user.deletionReason = reason;
+    await user.save();
+
+    if (user.email) {
+      await sendEmail(
+        user.email,
+        "Your Seller Account Deletion Request Was Rejected",
+        `<p>Hello ${user.name || "Seller"},</p><p>Your seller account deletion request was rejected.</p><p>Reason: ${reason}</p>`,
+      );
+    }
+
+    res.json({ msg: "Seller deletion request rejected." });
+  } catch (err) {
+    console.error("Reject seller deletion request error:", err);
+    res.status(500).json({ msg: "Failed to reject seller deletion request" });
+  }
+};
+
+export const restoreSeller = async (req, res) => {
+  try {
+    const sellerId = req.params.id;
+    const user = await User.findById(sellerId);
+    if (!user) return res.status(404).json({ msg: "User not found" });
+
+    user.role = "seller";
+    user.status = "active";
+    user.suspendedAt = null;
+    user.deletedAt = null;
+    user.suspensionReason = "";
+    user.sellerRequest = "approved";
+    await user.save();
+
+    await Product.updateMany(
+      { seller: sellerId, isDeleted: true },
+      {
+        $set: {
+          status: "pending",
+          isDeleted: false,
+          deletedBy: null,
+          deletedAt: null,
+          adminRemark: "",
+        },
+      },
+    );
+
+    res.json({ msg: "Seller restored successfully. Products moved to pending review." });
+  } catch (err) {
+    console.error("Restore seller error:", err);
+    res.status(500).json({ msg: "Failed to restore seller" });
+  }
+};
 
 export const getAllSellers = async (req, res) => {
   try {
-    const sellers = await User.find({ role: "seller" });
-
+    const sellers = await User.find({
+      $or: [
+        { role: "seller" },
+        { sellerRequest: "approved" },
+        { status: { $in: ["suspended", "deleted"] } },
+      ],
+    }).sort({ createdAt: -1 });
     const sellersWithStats = await Promise.all(
       sellers.map(async (seller) => {
-        const productCount = await Product.countDocuments({ seller: seller._id });
-        const orderCount = await Order.countDocuments({ seller: seller._id });
+        const [productCount, orderCount, revenue] = await Promise.all([
+          Product.countDocuments({ seller: seller._id, $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] }),
+          Order.countDocuments({ seller: seller._id }),
+          Order.aggregate([
+            { $match: { seller: seller._id, orderStatus: { $in: REVENUE_ORDER_STATUSES } } },
+            { $group: { _id: null, total: { $sum: "$price" } } },
+          ]),
+        ]);
 
         return {
           ...seller.toObject(),
           productCount,
-          orderCount
+          orderCount,
+          revenue: revenue[0]?.total || 0,
         };
-      })
+      }),
     );
 
     res.json(sellersWithStats);
@@ -289,29 +358,148 @@ export const getAllSellers = async (req, res) => {
   }
 };
 
-// GET STAT COUNTS
-// GET STAT COUNTS
 export const getStatCounts = async (req, res) => {
   try {
-    // 1. Role 'buyer' wale users count karo
-    const totalBuyer = await User.countDocuments({ role: "buyer" });
-    
-    // 2. Role 'seller' wale users count karo
-    const totalSellers = await User.countDocuments({ role: "seller" });
-    
-    // 3. Saare orders count karo (Ab customOrder nikal diya hai toh seedha count karo)
-    const totalOrders = await Order.countDocuments();
-    
-    // Frontend ko data bhej do
-    res.json({ totalBuyer, totalSellers, totalOrders });
-  }
-  catch (error) {
+    const [
+      totalUsers,
+      totalBuyers,
+      totalSellers,
+      totalOrders,
+      totalProducts,
+      totalRevenueRaw,
+      sellerUsers,
+      products,
+      orders,
+      pendingSellers,
+      pendingProducts,
+      cancelledOrders,
+      refundedOrders,
+      deliveredOrders,
+      activeOrders,
+      categoryCounts,
+    ] =
+      await Promise.all([
+        User.countDocuments({
+          role: { $ne: "admin" },
+        }),
+        User.countDocuments({
+          role: "buyer",
+          $or: ACTIVE_USER_FILTER,
+          sellerRequest: { $ne: "approved" },
+        }),
+        User.countDocuments({ role: "seller", $or: ACTIVE_USER_FILTER }),
+        Order.countDocuments(),
+        Product.countDocuments({ $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] }),
+        Order.aggregate([
+          { $match: { orderStatus: { $in: REVENUE_ORDER_STATUSES } } },
+          { $group: { _id: null, total: { $sum: "$price" } } },
+        ]),
+        User.find({ role: "seller", $or: ACTIVE_USER_FILTER }).select("name sellerRating businessDetails"),
+        Product.find({
+          status: "approved",
+          stock: { $gt: 0 },
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+        }).sort({ createdAt: -1 }).limit(6),
+        Order.find().populate("buyer seller product").sort({ createdAt: -1 }).limit(8),
+        User.countDocuments({ sellerRequest: "pending" }),
+        Product.countDocuments({ status: "pending", $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] }),
+        Order.countDocuments({ orderStatus: "cancelled" }),
+        Order.countDocuments({ orderStatus: "refunded" }),
+        Order.countDocuments({ orderStatus: "delivered" }),
+        Order.countDocuments({ orderStatus: { $in: ACTIVE_SELLER_ORDER_STATUSES } }),
+        Product.aggregate([
+          {
+            $match: {
+              status: "approved",
+              stock: { $gt: 0 },
+              $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+            },
+          },
+          {
+            $group: {
+              _id: "$category",
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { count: -1, _id: 1 } },
+        ]),
+      ]);
+
+    const totalRevenue = totalRevenueRaw[0]?.total || 0;
+
+    const topProductsRaw = await Order.aggregate([
+      {
+        $match: {
+          orderStatus: { $in: REVENUE_ORDER_STATUSES },
+        },
+      },
+      {
+        $group: {
+          _id: "$product",
+          totalSold: { $sum: "$quantity" },
+          revenue: { $sum: "$price" },
+          title: { $first: "$productTitle" },
+          image: { $first: "$productImage" },
+          category: { $first: "$productCategory" },
+        },
+      },
+      { $sort: { totalSold: -1 } },
+      { $limit: 5 },
+    ]);
+
+    const sellerRevenue = await Order.aggregate([
+      {
+        $match: {
+          orderStatus: { $in: REVENUE_ORDER_STATUSES },
+        },
+      },
+      {
+        $group: {
+          _id: "$seller",
+          totalSales: { $sum: "$price" },
+          totalOrders: { $sum: 1 },
+        },
+      },
+      { $sort: { totalSales: -1 } },
+    ]);
+
+    const topSellers = sellerRevenue.slice(0, 5).map((entry) => {
+      const seller = sellerUsers.find((item) => item._id.toString() === entry._id.toString());
+      return {
+        _id: entry._id,
+        name: seller?.name || "Seller",
+        sellerRating: seller?.sellerRating || 0,
+        businessDetails: seller?.businessDetails || {},
+        totalSales: entry.totalSales,
+        totalOrders: entry.totalOrders,
+      };
+    });
+
+    res.json({
+      totalUsers,
+      totalBuyer: totalBuyers,
+      totalSellers,
+      totalOrders,
+      totalProducts,
+      totalRevenue,
+      activeOrders,
+      cancelledOrders,
+      refundedOrders,
+      deliveredOrders,
+      pendingSellers,
+      pendingProducts,
+      topSellers,
+      topProducts: topProductsRaw,
+      recentOrders: orders,
+      recentProducts: products,
+      categoryManagement: categoryCounts.map((item) => ({ name: item._id || "uncategorized", count: item.count })),
+    });
+  } catch (error) {
     console.error("Stat Count Error:", error.message);
     res.status(500).json({ msg: "Server error" });
   }
-}
+};
 
-//get all orders 
 export const getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find()
@@ -328,53 +516,21 @@ export const getAllOrders = async (req, res) => {
   }
 };
 
-// get all custom orders
-// export const getAllCustomOrders = async (req, res) => {
-//   try {
-//     const orders = await CustomOrder.find()
-//       .populate("buyer")
-//       .populate("seller")
-//       .sort({ createdAt: -1 });
-
-//     res.json(orders);
-//   } catch (err) {
-//     console.error("Get Admin Custom Orders Error:", err);
-//     res.status(500).json({ msg: "Server error" });
-//   }
-// };
-
-// get payments for custom order only 
-// export const getCustomPayments = async (req, res) => {
-//   try {
-//     const payments = await Payment.find({ customOrder: { $ne: null } })
-//       .populate("buyer")
-//       .populate("seller")
-//       .populate("customOrder")
-//       .sort({ createdAt: -1 });
-
-//     res.json(payments);
-//   } catch (err) {
-//     console.error("Payment Fetch Err:", err);
-//     res.status(500).json({ msg: "Server error" });
-//   }
-// };
-
-// approve products added by seller
-
-// Admin route to approve a product
 export const approveProduct = async (req, res) => {
   try {
-    // Route mein :id hai, isliye params.id use karein
-    const productId = req.params.id; 
-    
-    console.log("Approving product with ID:", productId);
-    
+    const productId = req.params.id;
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
-      { status: "approved" },
-      { new: true }
+      {
+        status: "approved",
+        isDeleted: false,
+        deletedBy: null,
+        deletedAt: null,
+        adminRemark: "",
+      },
+      { new: true },
     );
-    
+
     if (!updatedProduct) {
       return res.status(404).json({ msg: "Product not found" });
     }
@@ -385,20 +541,18 @@ export const approveProduct = async (req, res) => {
   }
 };
 
-// reject prduct added by seller with optional remark
-// controllers/adminController.js
 export const rejectProduct = async (req, res) => {
   try {
-    const { productId } = req.params.id;
-    const { adminRemark } = req.body; // Reason for rejection
+    const productId = req.params.id;
+    const { adminRemark } = req.body;
 
     const product = await Product.findByIdAndUpdate(
       productId,
-      { 
+      {
         status: "rejected",
-        adminRemark: adminRemark || "Product does not meet our guidelines."
+        adminRemark: adminRemark || "Product does not meet our guidelines.",
       },
-      { new: true }
+      { new: true },
     );
 
     if (!product) return res.status(404).json({ msg: "Product not found" });
@@ -409,14 +563,11 @@ export const rejectProduct = async (req, res) => {
   }
 };
 
-// get pending products for admin approval queue
 export const getPendingProducts = async (req, res) => {
-  try{
-    const pendingProducts = await Product.find({status: "pending"})
-      .populate("seller")
-    // console.log(pendingProducts);
+  try {
+    const pendingProducts = await Product.find({ status: "pending", isDeleted: false }).populate("seller");
     res.json(pendingProducts);
   } catch (err) {
     res.status(500).json({ msg: "Failed to fetch pending products" });
   }
-}
+};

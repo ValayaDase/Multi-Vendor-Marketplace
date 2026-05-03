@@ -11,6 +11,7 @@ import VerifyOtp from "./authentication/VerifyOtp";
 // BUYER IMPORTS
 import BuyerLayout from "./dashboard/buyer/BuyerLayout";
 import BuyersDashboard from "./dashboard/buyer/BuyersDashboard";
+import BuyerAnalytics from "./dashboard/buyer/BuyerAnalytics";
 import ProductsPage from "./dashboard/buyer/ProductsPage";
 import ProductDetails from "./dashboard/buyer/ProductDetails";
 import SavedProducts from "./dashboard/buyer/SavedProducts";
@@ -58,6 +59,7 @@ export default function App() {
 
             {/* View All Products */}
             <Route path="all" element={<ProductsPage />} />
+            <Route path="analytics" element={<BuyerAnalytics />} />
 
             {/* Category Filtering */}
             <Route path="category/:name" element={<ProductsPage />} />
@@ -71,7 +73,7 @@ export default function App() {
             {/* Product Details */}
             <Route path="product/:id" element={<ProductDetails />} />
 
-            <Route path="/buyer/checkout" element={<Checkout />} />
+            <Route path="checkout" element={<Checkout />} />
 
           </Route>
 

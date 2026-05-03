@@ -2,6 +2,7 @@ import express from "express";
 import {
   createOrder,
   getBuyerOrders,
+  getBuyerAnalytics,
   getSellerOrders,
   updateOrderStatus,
   cancelOrder
@@ -15,6 +16,7 @@ router.post("/create", auth, createOrder);
 
 // BUYER ORDERS
 router.get("/buyer", auth, getBuyerOrders);
+router.get("/buyer/analytics", auth, getBuyerAnalytics);
 
 // SELLER ORDERS
 router.get("/seller/:id", auth, getSellerOrders);

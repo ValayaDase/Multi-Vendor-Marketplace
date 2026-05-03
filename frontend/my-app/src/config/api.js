@@ -1,4 +1,5 @@
 import axios from "axios";
+import { emitToast } from "../components/ui/ToastProvider.jsx";
 
 // Get URL from environment variable or use localhost as fallback
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
@@ -39,7 +40,7 @@ api.interceptors.response.use(
 
     // Handle 403 (Forbidden) - User doesn't have permission
     if (error.response?.status === 403) {
-      alert("Access denied. You don't have permission to perform this action.");
+      emitToast("Access denied. You don't have permission to perform this action.", "error");
       return Promise.reject(new Error("Access denied"));
     }
 
@@ -50,7 +51,7 @@ api.interceptors.response.use(
 
     // Handle 500 (Server Error)
     if (error.response?.status === 500) {
-      alert("Server error. Please try again later.");
+      emitToast("Server error. Please try again later.", "error");
     }
 
     return Promise.reject(error);

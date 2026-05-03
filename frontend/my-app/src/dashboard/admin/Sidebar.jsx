@@ -19,7 +19,7 @@ const Sidebar = () => {
 
   return (
     <div className="w-64 bg-white shadow-xl fixed h-full z-20 border-r border-gray-100 flex flex-col">
-      <div className="p-6 border-b border-gray-50 bg-indigo-600 text-white">
+      <div className="p-6 border-b border-gray-50 bg-gray-800 text-white">
         <h1 className="text-xl font-bold tracking-tight">ART POINT</h1>
         <p className="text-[10px] opacity-80 uppercase tracking-widest">Admin Panel</p>
       </div>
@@ -31,7 +31,7 @@ const Sidebar = () => {
             to={item.path}
             className={({ isActive }) => `
               flex items-center gap-3 px-4 py-3 rounded-xl transition-all
-              ${isActive ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}
+              ${isActive ? 'bg-indigo-50 text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}
             `}
           >
             {item.icon}

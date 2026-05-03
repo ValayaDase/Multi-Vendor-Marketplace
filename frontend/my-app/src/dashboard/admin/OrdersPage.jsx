@@ -1,38 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import api, { getImageUrl } from '../../config/api';
+import React, { useEffect, useState } from "react";
+import api, { getImageUrl } from "../../config/api";
+import { formatCurrency } from "../../utils/marketplace";
 
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
 
+  const loadOrders = async () => {
+    const res = await api.get("/admin/orders");
+    setOrders(res.data || []);
+  };
+
   useEffect(() => {
-    const loadOrders = async () => {
-      const res = await api.get("/admin/orders");
-      setOrders(res.data || []);
+    loadOrders().catch(console.error);
+
+    const refresh = () => loadOrders().catch(console.error);
+    const intervalId = window.setInterval(refresh, 20000);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refresh);
     };
-    loadOrders();
   }, []);
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold text-gray-800 mb-6">Master Order List</h3>
-      {orders.map(o => (
-        <div key={o._id} className="bg-white p-5 rounded-2xl border border-gray-100 flex gap-6 hover:shadow-md transition-all">
-          <img src={getImageUrl(o.product?.images?.[0])} className="w-20 h-20 rounded-xl object-cover shadow-sm" />
+      <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <h1 className="text-3xl font-light text-slate-900">All Orders List</h1>
+        <p className="mt-2 text-sm text-slate-500">Track buyer, seller, payment, and fulfillment state for every order.</p>
+      </div>
+
+      {orders.map((order) => (
+        <div key={order._id} className="flex flex-col gap-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center">
+          <img
+            src={getImageUrl(order.product?.thumbnail || order.product?.images?.[0] || order.productImage)}
+            alt={order.product?.title || order.productTitle}
+            className="h-20 w-20 rounded-2xl object-cover"
+          />
           <div className="flex-1">
-            <div className="flex justify-between">
-               <h4 className="font-bold text-gray-800">{o.product?.title}</h4>
-               <span className="text-indigo-600 font-black text-sm">₹{o.price}</span>
-            </div>
-            <div className="flex gap-4 mt-2 text-[11px] text-gray-400 font-medium">
-               <span>BUYER: {o.buyer?.name}</span>
-               <span>SELLER: {o.seller?.name}</span>
-            </div>
-            <div className="mt-3 flex gap-2">
-               <span className="px-2 py-0.5 rounded-md bg-green-50 text-green-600 text-[10px] font-bold uppercase">{o.orderStatus}</span>
-               <span className="px-2 py-0.5 rounded-md bg-gray-50 text-gray-500 text-[10px] font-bold uppercase">{o.paymentStatus}</span>
-               <span className="px-2 py-0.5 rounded-md bg-gray-50 text-gray-500 text-[10px] font-bold uppercase">{o.paymentStatus}</span>
+            <h3 className="font-semibold text-slate-900">{order.product?.title || order.productTitle}</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Buyer: {order.buyer?.name} • Seller: {order.seller?.name}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold uppercase tracking-[0.2em]">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{order.orderStatus}</span>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">{order.paymentStatus}</span>
             </div>
           </div>
+          <p className="text-xl font-black text-slate-900">{formatCurrency(order.price)}</p>
         </div>
       ))}
     </div>

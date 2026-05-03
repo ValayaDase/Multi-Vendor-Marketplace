@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { FiBox, FiEdit3, FiPackage, FiPlus, FiTrash2 } from "react-icons/fi";
 import ProductForm from "./ProductForm";
 import api, { getImageUrl } from "../../config/api";
-import { FiPlus, FiEdit3, FiTrash2, FiBox, FiPackage } from "react-icons/fi";
+import { ecoBadgeClasses, formatCurrency, getEcoLabel } from "../../utils/marketplace";
 
 const MyProducts = () => {
   const [products, setProducts] = useState([]);
@@ -9,122 +10,109 @@ const MyProducts = () => {
   const [editingProduct, setEditingProduct] = useState(null);
 
   const fetchProducts = () => {
-    api.get("/products/mine")
-      .then((res) => setProducts(res.data))
-      .catch((err) => console.log(err));
+    api.get("/products/mine").then((res) => setProducts(res.data)).catch(console.error);
   };
 
-  useEffect(() => { fetchProducts(); }, []);
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   const deleteProduct = async (id) => {
-    if (!confirm("Are you sure you want to delete this artwork?")) return;
+    if (!confirm("Delete this product? It will be hidden from buyers but kept safely in the system.")) return;
     try {
-      await api.delete(`/products/delete/${id}`);
-      setProducts((prev) => prev.filter((p) => p._id !== id));
+      const res = await api.delete(`/products/delete/${id}`);
+      alert(res.data.msg || "Product hidden from buyers.");
+      fetchProducts();
     } catch (err) {
-      console.error(err);
       alert(err.response?.data?.msg || "Failed to delete product");
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#fcfcfd] py-12">
-      <div className="max-w-7xl mx-auto px-6">
-        
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-          <div className="text-center mb-10">
-            <h2 className="text-4xl font-light text-gray-900 mb-3">
-              My Collection
-            </h2>
-            <p className="text-gray-500 text-base">
-              {products.length} Active Listings
-            </p>
-          </div>
-
-          <button
-            onClick={() => setOpenForm(true)}
-            className="inline-flex items-center gap-2 px-8 py-3 bg-rose-600 text-white rounded-full font-bold uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg shadow-rose-900/20 active:scale-95"
-          >
-            <FiPlus className="text-lg" />
-            Add Collection
-          </button>
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-3xl font-light text-slate-900">My Products</h1>
+          <p className="mt-2 text-sm text-slate-500">Add, edit, delete, and review approval status for every listing.</p>
         </div>
-
-        {/* Divider */}
-        <div className="w-full h-[1px] bg-gray-200 mb-12" />
-
-        {/* Products Grid */}
-        {products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 text-center border-2 border-dashed border-gray-200 rounded-3xl">
-            <div className="p-6 bg-gray-50 rounded-full mb-6">
-              <FiBox size={48} className="text-gray-300" />
-            </div>
-            <h3 className="text-3xl font-light text-gray-900 mb-3">Your gallery is empty</h3>
-            <p className="text-gray-500 text-base">
-              Ready to showcase your creativity? Upload your first masterpiece today.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {products.map((p) => (
-              <div
-                key={p._id}
-                className="group relative bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300"
-              >
-                {/* Image Wrapper */}
-                <div className="aspect-[4/5] overflow-hidden bg-gray-100 relative">
-                  <img
-                    src={getImageUrl(p.images[0])}
-                    alt={p.title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                  
-                  {/* Category Badge */}
-                  <div className="absolute top-4 left-4">
-                    <span className="bg-white/90 backdrop-blur-md px-3 py-1 text-[10px] font-black uppercase tracking-widest text-black shadow-sm">
-                      {p.category || "Original Art"}
-                    </span>
-                  </div>
-
-                  {/* Actions Overlay */}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
-                     <button onClick={() => { setEditingProduct(p); setOpenForm(true); }} className="p-3 bg-white text-black rounded-full hover:bg-gray-100 transition">
-                        <FiEdit3 size={18} />
-                     </button>
-                     <button onClick={() => deleteProduct(p._id)} className="p-3 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition">
-                        <FiTrash2 size={18} />
-                     </button>
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-5">
-                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight truncate mb-2">
-                    {p.title}
-                  </h3>
-                  <div className="flex justify-between items-center">
-                    <p className="text-lg font-black text-rose-600">
-                      ₹{p.price.toLocaleString("en-IN")}
-                    </p>
-                    <div className="flex items-center gap-1 text-[10px] text-gray-300 font-bold uppercase tracking-widest">
-                      <FiPackage /> {p.stock || 0} In Stock
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <button
+          onClick={() => setOpenForm(true)}
+          className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white"
+        >
+          <FiPlus />
+          Add Product
+        </button>
       </div>
 
-      {/* Form Modal */}
+      {products.length === 0 ? (
+        <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white py-24 text-center">
+          <FiBox size={46} className="mx-auto text-slate-300" />
+          <h3 className="mt-4 text-2xl font-semibold text-slate-900">No products yet</h3>
+          <p className="mt-2 text-slate-500">Create your first listing with up to 5 product images and eco details.</p>
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {products.map((product) => (
+            <div key={product._id} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+              <div className="relative h-64 bg-slate-100">
+                <img src={getImageUrl(product.thumbnail || product.images?.[0])} alt={product.title} className="h-full w-full object-cover" />
+                <div className={`absolute right-4 top-4 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${ecoBadgeClasses[product.ecoScore?.badgeColor || "yellow"]}`}>
+                  {getEcoLabel(product.ecoScore?.score)}
+                </div>
+              </div>
+              <div className="space-y-4 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">{product.title}</h3>
+                    <p className="mt-1 text-sm text-slate-500">{product.category}</p>
+                  </div>
+                  <p className="text-xl font-black text-slate-900">{formatCurrency(product.price)}</p>
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-slate-500">
+                  <span className="inline-flex items-center gap-2"><FiPackage /> {product.stock} stock</span>
+                  <span className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] ${
+                    product.isDeleted
+                      ? "bg-rose-50 text-rose-600"
+                      : "bg-slate-100 text-slate-600"
+                  }`}>
+                    {product.isDeleted ? "hidden" : product.status}
+                  </span>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setEditingProduct(product);
+                      setOpenForm(true);
+                    }}
+                    className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700"
+                  >
+                    <span className="inline-flex items-center gap-2"><FiEdit3 /> Edit</span>
+                  </button>
+                  <button
+                    onClick={() => deleteProduct(product._id)}
+                    className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600"
+                    title="Product will be hidden from buyers"
+                  >
+                    <FiTrash2 />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {openForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl relative">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-4xl rounded-[2rem] bg-white shadow-2xl">
             <ProductForm
               product={editingProduct}
-              onClose={() => { setOpenForm(false); setEditingProduct(null); }}
+              onClose={() => {
+                setOpenForm(false);
+                setEditingProduct(null);
+              }}
               onProductAdded={fetchProducts}
             />
           </div>

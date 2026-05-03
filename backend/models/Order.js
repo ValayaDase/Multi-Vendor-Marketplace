@@ -30,38 +30,61 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
-    // ⭐ NEW — Billing details (entered in checkout)
+    productTitle: {
+      type: String,
+      default: "",
+    },
+
+    productName: {
+      type: String,
+      default: "",
+    },
+
+    productImage: {
+      type: String,
+      default: "",
+    },
+
+    imageUrl: {
+      type: String,
+      default: "",
+    },
+
+    productCategory: {
+      type: String,
+      default: "",
+    },
+
     billingName: String,
     billingEmail: String,
     billingPhone: String,
     billingAddress: String,
+    billingPincode: String,
 
-    // ⭐ NEW — Payment Link (from Payment model)
     paymentRef: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Payment",
       default: null,
     },
 
-    // ⭐ NEW — Payment Status
     paymentStatus: {
       type: String,
       enum: ["pending", "paid", "refunded"],
       default: "pending",
     },
 
-    // ⭐ NEW — Order Status (admin/seller modifications)
     orderStatus: {
       type: String,
       enum: [
-        "pending",      // order created but no payment yet
-        "confirmed",    // payment done
-        "processing",   // seller preparing product
-        "shipped",      // seller shipped it
-        "delivered",    // completed
+        "pending",
+        "confirmed",
+        "processing",
+        "shipped",
+        "delivered",
+        "rejected",
         "cancelled",
         "refunded",
-        "seller_deleted" // seller deleted their account
+        "seller_deleted",
       ],
       default: "pending",
     },
@@ -71,7 +94,7 @@ const orderSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("Order", orderSchema);

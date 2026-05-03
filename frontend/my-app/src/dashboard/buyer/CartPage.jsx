@@ -147,6 +147,8 @@ export default function CartPage() {
                         sellerId: i.product.seller,
                         quantity: i.quantity,
                         price: i.product.price,
+                        title: i.product.title,
+                        image: i.product.thumbnail || i.product.images?.[0],
                       };
                     }),
                   };

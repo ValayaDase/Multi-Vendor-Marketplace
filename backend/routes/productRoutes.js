@@ -5,13 +5,13 @@ import { createProduct, getSellerProducts, deleteProduct, getAllProducts, getPro
 
 const router = express.Router();
 
-router.post("/create", auth, productUpload.single("image"), createProduct);
+router.post("/create", auth, productUpload.array("images", 5), createProduct);
 
 router.get("/mine", auth, getSellerProducts);
 
 router.delete("/delete/:id", auth, deleteProduct);
 
-router.put("/update/:id", auth, productUpload.single("image"), updateProduct);
+router.put("/update/:id", auth, productUpload.array("images", 5), updateProduct);
 
 router.get("/getAll", getAllProducts);
 

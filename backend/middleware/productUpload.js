@@ -6,6 +6,21 @@ const storage = multer.diskStorage({
     filename: (req, file, cb)=>{
         cb(null, Date.now() + path.extname(file.originalname));
     }
-})
+});
 
-export const productUpload = multer({storage});
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype?.startsWith("image/")) {
+    cb(null, true);
+    return;
+  }
+
+  cb(new Error("Only image uploads are allowed"));
+};
+
+export const productUpload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    files: 5,
+  },
+});
