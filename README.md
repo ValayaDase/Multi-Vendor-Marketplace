@@ -42,7 +42,7 @@ It features vendor onboarding, order management, payments, product eco-scores, a
 - React Router
 - nodemailer (email notifications)
 - classnames, react-icons
-- ESLint, Prettier, (Add testing suite as required)
+
 
 ---
 
